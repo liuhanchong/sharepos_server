@@ -4,6 +4,6 @@
 #include "evsys.h"
 #include "evself.h"
 #include "reactor.h"
-#include "socket.h"
+#include "sock.h"
 
 #endif
