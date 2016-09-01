@@ -96,10 +96,6 @@ typedef struct event
     callback call;
     void *arg;
     reactor *reactor;/*所属反应器*/
-    unsigned char readbuf[EV_READBUF];
-    int readbufsize;
-    unsigned char writebuf[EV_WRITEBUF];
-    int writebufsize;
     struct timeval endtimer;/*保存定时器结束时间*/
     struct timeval watimer;/*保存定时间隔*/
     struct sigaction *oldsiga;/*保存设置前信号处理*/
