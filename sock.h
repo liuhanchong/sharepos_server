@@ -17,6 +17,8 @@ uint16_t htonsv(uint16_t host);
 /*将网络转本机*/
 uint16_t ntohsv(uint16_t net);
 
+char *inetntoa(struct in_addr in);
+
 /*将ip转换为网路字节序列*/
 int iptonet(int domain, const char *ip, void *addr);
 

@@ -99,6 +99,7 @@ typedef struct event
     struct timeval endtimer;/*保存定时器结束时间*/
     struct timeval watimer;/*保存定时间隔*/
     struct sigaction *oldsiga;/*保存设置前信号处理*/
+    void *buf;/*http buf*/
     struct event *next;
 } event;
 

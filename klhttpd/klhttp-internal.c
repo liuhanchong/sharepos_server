@@ -282,7 +282,7 @@ void http_request_free( struct http_request *request )
   currently, this function mainly to handle the http request, until now it only 
   load the resource file and send them to the client.
 */
-int http_handle_request( struct evbuffer *buf, const struct http_request *request, res_exist_cb cb_exist, res_load_cb cb_load   )
+int http_handle_request( struct evbuffer *buf, const struct http_request *request )
 {
 	int ret;
 
@@ -292,22 +292,12 @@ int http_handle_request( struct evbuffer *buf, const struct http_request *reques
 	{
 		return -1;
 	}
-
-	ret = cb_exist( request->uri );
-	if( ret < 0 )
-	{
-		/* file not found */
-		char more_info[256];
-		sprintf( more_info, "The resource : %s is not found on this sever!", request->uri );
-		http_response_error( buf, HTTP_NOTFOUND, CODE_STR( HTTP_NOTFOUND ), more_info );
-		return -1;
-	}
 	
 	/* 200 OK */
 	evbuffer_add_printf( buf, "HTTP/%d.%d %d %s\r\n", request->ver.major, request->ver.minor, HTTP_OK, CODE_STR( HTTP_OK ) );
 
 	/* add server info header */
-	evbuffer_add_printf( buf, "Server: klhttpd/0.1.0\r\n" );
+	evbuffer_add_printf( buf, "Server: sharepos/0.1.0\r\n" );
 	/* add time header */
 	_add_time_header( buf );
 	/* add Content-Type header */
@@ -315,22 +305,24 @@ int http_handle_request( struct evbuffer *buf, const struct http_request *reques
 		char mime[32];
 		evbuffer_add_printf( buf, "Content-Type: %s\r\n", _get_mime_type( request->uri, mime ) );
 	}
-	/* add Content-Length header */
-	evbuffer_add_printf( buf, "Content-Length: %d\r\n", ret );
+    //回应数据
+    {
+        if( request->type == HTTP_GET )
+        {
+            
+        }
+        char *text = "wo shi server";
+    
+        /* add Content-Length header */
+        evbuffer_add_printf( buf, "Content-Length: %lu\r\n", strlen(text) );
+    
+        /* add Content-Length header */
+        evbuffer_add_printf( buf, "%s \r\n", text );
+    }
 
 	/* end of headers */
 	evbuffer_add( buf, "\r\n", 2 );
 
-	if( request->type == HTTP_GET )
-	{
-		/* load the resource */
-		ret = cb_load( request->uri, buf );
-		if( ret < 0 )
-		{
-			/* server unknown error */
-			
-		}
-	}
 
 	return 0;
 }

@@ -16,10 +16,21 @@ typedef struct httpserver
     int httpsock;/*服务器套接字*/
 } httpserver;
 
+typedef struct httpbuf
+{
+    int fd;
+    struct evbuffer *inbuf;
+    struct evbuffer *outbuf;
+} httpbuf;
+
 struct httpserver *createhttp(struct eventtop *etlist, char *ip, int port);
 
 cbool dispatchhttp(struct httpserver *server);
 
 cbool destroyhttp(struct httpserver *server);
+
+struct httpbuf *createhttpbuf(int fd);
+
+cbool destroyhttpbuf(struct httpbuf *buf);
 
 #endif

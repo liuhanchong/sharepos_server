@@ -32,6 +32,11 @@ uint16_t ntohsv(uint16_t net)
 	return ntohs(net);
 }
 
+char *inetntoa(struct in_addr in)
+{
+    return inet_ntoa(in);
+}
+
 /*将ip转换为网路字节序列*/
 int iptonet(int domain, const char *ip, void *addr)
 {

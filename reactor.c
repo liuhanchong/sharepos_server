@@ -1,4 +1,6 @@
 #include "reactor.h"
+#include "evbuffer.h"
+#include "http.h"
 
 /*全局reactor*/
 static struct reactor *glreactor = NULL;
@@ -6,16 +8,28 @@ static struct reactor *glreactor = NULL;
 static struct event *cpevent(struct event *sevent)
 {
     struct event *devent = malloc(sizeof(struct event));
-    if (devent)
+    if (!devent)
     {
-        memcpy(devent, sevent, sizeof(struct event));
+        return NULL;
     }
+    
+    memcpy(devent, sevent, sizeof(struct event));
+    
+    //将src copy 到 des
+    struct httpbuf *copybuf = sevent->buf;
+    struct httpbuf *buf = createhttpbuf(sevent->fd);
+
+    evbuffer_add_buffer(buf->inbuf, copybuf->inbuf);
+    evbuffer_add_buffer(buf->outbuf, copybuf->outbuf);
+    
+    devent->buf = buf;
     
     return devent;
 }
 
 static void frevent(struct event *event)
 {
+    destroyhttpbuf(event->buf);
     free(event);
 }
 
@@ -381,6 +395,9 @@ struct event *setevent(struct reactor *reactor, int fd, int evtype, callback cal
     newevent->call = call;
     newevent->arg = arg;
     newevent->reactor = reactor;
+
+    //添加httpbuf
+    newevent->buf = createhttpbuf(fd);
     
     return newevent;
 }

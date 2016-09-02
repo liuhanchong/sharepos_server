@@ -58,9 +58,9 @@
 #ifdef HAVE_STDARG_H
 #include <stdarg.h>
 #endif
-#ifdef HAVE_UNISTD_H
+//#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#endif
+//#endif
 
 #include "evbuffer.h"
 
@@ -391,7 +391,7 @@ evbuffer_read(struct evbuffer *buf, int fd, int howmuch)
 	p = buf->buffer + buf->off;
 
 #ifndef WIN32
-//	n = read(fd, p, howmuch);
+	n = (int)read(fd, p, howmuch);
 #else
 	n = recv(fd, p, howmuch, 0);
 #endif
@@ -415,7 +415,7 @@ evbuffer_write(struct evbuffer *buffer, int fd)
 	int n;
 
 #ifndef WIN32
-//	n = write(fd, buffer->buffer, buffer->off);
+	n = (int)write(fd, buffer->buffer, buffer->off);
 #else
 	n = send(fd, buffer->buffer, buffer->off, 0);
 #endif

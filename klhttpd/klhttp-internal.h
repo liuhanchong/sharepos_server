@@ -149,7 +149,7 @@ typedef int (*res_exist_cb)( const char *uri );
 
   @param buf the output buffer, will be writen with the response.
 */
-int http_handle_request( struct evbuffer *buf, const struct http_request *request, res_exist_cb cb_exist, res_load_cb cb_load );
+int http_handle_request( struct evbuffer *buf, const struct http_request *request );
 
 /** 
   send error info to the client.
