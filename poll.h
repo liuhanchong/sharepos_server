@@ -19,15 +19,7 @@ cbool createpo(struct reactor *reactor, void *data)
 
 static int findpolfd(struct event *event, po_event_t *evelist, int fd)
 {
-//    int index = event->fd % event->reactor->pol.evelistlen;
-    
-    //以hash表的形式查找
-//    if (evelist[index].fd == fd)
-//    {
-//        return index;
-//    }
-    
-    //没找到 直接遍历所有
+    //直接遍历所有
     for (int i = 0; i < event->reactor->pol.evelistlen; i++)
     {
         if (evelist[i].fd == fd)

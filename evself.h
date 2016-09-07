@@ -57,6 +57,7 @@ typedef struct selset
     void *readfds;
     void *writefds;
     void *errorfds;
+    int maxfd;/*保存当前描述符中最大的一个*/
 } selset;
 
 typedef struct multiplex

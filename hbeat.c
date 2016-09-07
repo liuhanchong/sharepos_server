@@ -53,11 +53,6 @@ static void *handlefd(void *data)
                     }
                 }
                 
-                if (delheartbeat(hebeat, hbnode->fd) == FAILED)
-                {
-                    ploginfo(LERROR, "handlefd->delheartbeat failed");
-                }
-                
                 ploginfo(LOTHER, "no effect sid=%d", hbnode->fd);
             }
             else

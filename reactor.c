@@ -315,6 +315,7 @@ struct reactor *createreactor(struct eventtop *etlist, int selevmode)
     newreactor->selmode.selevmode = selevmode;/*选择的事件模型*/
     newreactor->selmode.selevtop = &etlist[selevmode];
     newreactor->selmode.etlist = etlist;
+    ploginfo(LDEBUG, "select event model is %s", newreactor->selmode.selevtop->name);
     
     /*初始化心跳管理*/
     newreactor->hbeat = createheartbeat(evenumber, 3);

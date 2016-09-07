@@ -146,7 +146,7 @@ struct httpserver *createhttp(struct sysc *sysc, struct eventtop *etlist, char *
     }
     
     //创建反应堆模型
-    if ((httpserver->reactor = createreactor(etlist, 1)) == NULL)
+    if ((httpserver->reactor = createreactor(etlist, 2)) == NULL)
     {
         ploginfo(LDEBUG, "createhttp->createreactor failed");
         return NULL;

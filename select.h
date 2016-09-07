@@ -10,19 +10,19 @@ typedef struct fd_set se_event_t;
 cbool createse(struct reactor *reactor, void *data)
 {
     reactor->selset.readfds = (void *)malloc(sizeof(se_event_t));
-    if (reactor->selset.readfds)
+    if (reactor->selset.readfds == NULL)
     {
         return FAILED;
     }
 
     reactor->selset.writefds = (void *)malloc(sizeof(se_event_t));
-    if (reactor->selset.readfds)
+    if (reactor->selset.writefds == NULL)
     {
         return FAILED;
     }
 
     reactor->selset.errorfds = (void *)malloc(sizeof(se_event_t));
-    if (reactor->selset.readfds)
+    if (reactor->selset.errorfds == NULL)
     {
         return FAILED;
     }
@@ -30,6 +30,8 @@ cbool createse(struct reactor *reactor, void *data)
     FD_ZERO(reactor->selset.readfds);
     FD_ZERO(reactor->selset.writefds);
     FD_ZERO(reactor->selset.errorfds);
+    
+    reactor->selset.maxfd = -1;
 
     return SUCCESS;
 }
@@ -47,6 +49,12 @@ cbool addse(struct event *event, void *data)
         FD_SET(event->fd, fdset);
     }
     
+    //保存最大的连接描述符
+    if (event->fd > event->reactor->selset.maxfd)
+    {
+        event->reactor->selset.maxfd = event->fd;
+    }
+    
     return SUCCESS;
 }
 
@@ -59,6 +67,7 @@ cbool delse(struct event *event, void *data)
     event->reactor->selset.errorfds;
     
     FD_CLR(event->fd, fdset);
+    
     return SUCCESS;
 }
 
@@ -67,11 +76,11 @@ cbool dispatchse(struct reactor *reactor, struct timeval *tv, void *data)
     se_event_t rset;
     se_event_t wset;
     se_event_t eset;
-    FD_COPY(reactor->selset.readfds, &rset);
-    FD_COPY(reactor->selset.writefds, &wset);
-    FD_COPY(reactor->selset.errorfds, &eset);
+    memcpy(&rset, reactor->selset.readfds, sizeof(se_event_t));
+    memcpy(&wset, reactor->selset.writefds, sizeof(se_event_t));
+    memcpy(&eset, reactor->selset.errorfds, sizeof(se_event_t));
     
-    int actnum = select(reactor->maxconnnum + 1, &rset, &wset, &eset, tv);
+    int actnum = select(reactor->selset.maxfd + 1, &rset, &wset, &eset, tv);
     if (actnum == -1)
     {
         return FAILED;
@@ -83,7 +92,7 @@ cbool dispatchse(struct reactor *reactor, struct timeval *tv, void *data)
         return SUCCESS;
     }
     
-    for (int i = 0; i <= reactor->maxconnnum; ++i)
+    for (int i = 0; i <= reactor->selset.maxfd; ++i)
     {
         if (FD_ISSET(i, &rset) || FD_ISSET(i, &wset))
         {
