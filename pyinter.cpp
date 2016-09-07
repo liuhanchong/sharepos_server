@@ -237,14 +237,29 @@ cbool getsyscon(const char *filename, struct sysc *sysc)
         {
             return FAILED;
         }
-
-		//获取类的成员
+        
+        //获取服务器配置
 		pyobject *ip = py.callmethod(sysclass, (char *)"getip");
 		char *cip = py.parsestr(ip);
 		strncpy((char *)sysc->ip, cip, sizeof(sysc->ip));
 
 		pyobject *port = py.callmethod(sysclass, (char *)"getport");
 		sysc->port = py.parseint(port);
+        
+        //获取数据库配置
+        char *chost = py.parsestr(py.callmethod(sysclass, (char *)"gethost"));
+        strncpy((char *)sysc->host, chost, sizeof(sysc->host));
+        
+        char *cuser = py.parsestr(py.callmethod(sysclass, (char *)"getuser"));
+        strncpy((char *)sysc->user, cuser, sizeof(sysc->user));
+        
+        char *cpaw = py.parsestr(py.callmethod(sysclass, (char *)"getpaw"));
+        strncpy((char *)sysc->paw, cpaw, sizeof(sysc->paw));
+        
+        char *cdb = py.parsestr(py.callmethod(sysclass, (char *)"getdb"));
+        strncpy((char *)sysc->db, cdb, sizeof(sysc->db));
+        
+        sysc->dbport = py.parseint(py.callmethod(sysclass, (char *)"getdbport"));
 	}
 	catch (exception &e)
 	{

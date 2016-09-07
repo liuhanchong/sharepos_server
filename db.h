@@ -44,8 +44,6 @@ public:
     
     /*根据数据库类型实例化数据库*/
     static db *insdbbytype(int dbtype);
-    static struct dbconn *createdbconn(struct dbconn *conn);
-    static void destroydbconn(struct dbconn *conn);
     static struct dbconn *createdbconn(char *host,
                                        char *user,
                                        char *pass,
@@ -53,6 +51,8 @@ public:
                                        char *unixsock,
                                        unsigned long cliflag,
                                        unsigned int port);
+    static struct dbconn *copydbconn(struct dbconn *conn);
+    static void destroydbconn(struct dbconn *conn);
 
 private:
     static char *copystr(char *str);

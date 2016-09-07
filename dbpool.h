@@ -29,4 +29,4 @@ cbool adddb(dbpool *dbpool, int adddbnum, struct dbconn *conn);/*添加db*/
 dbnode *getdb(dbpool *dbpool);/*获取一个未使用的连接*/
 void reldb(dbpool *dbpool, dbnode *dbnode);/*释放不使用的db*/
 
-#endif /* DBPOOL_H */
+#endif

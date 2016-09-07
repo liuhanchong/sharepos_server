@@ -19,7 +19,7 @@ char *db::copystr(char *str)
     return nstr;
 }
 
-struct dbconn *db::createdbconn(struct dbconn *conn)
+struct dbconn *db::copydbconn(struct dbconn *conn)
 {
     struct dbconn *dbconn = (struct dbconn *)malloc(sizeof(struct dbconn));
     if (!dbconn)

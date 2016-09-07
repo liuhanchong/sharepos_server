@@ -15,16 +15,6 @@ typedef struct spserver
 /*全局服务器配置*/
 struct spserver server;
 
-void *closesys(void *event, void *arg)
-{
-    ploginfo(LDEBUG, "closesys");
-    
-    struct reactor *reactor = (struct reactor *)arg;
-    reactor->listen = 0;
-    
-    return NULL;
-}
-
 int main(int argc, const char *argv[])
 {
     memset(&server, 0, sizeof(spserver));
@@ -53,7 +43,6 @@ int main(int argc, const char *argv[])
     }
     
     //保存当前进程信息
-    printf("the process id is %d!\n", getpid());
     setpidtofile();
     
     /*创建事件模型*/
@@ -73,20 +62,13 @@ int main(int argc, const char *argv[])
     }
     
     //创建http服务器模块
-    server.http = createhttp(server.etlist, (char *)server.sysc.ip, server.sysc.port);
+    server.http = createhttp(&server.sysc, server.etlist, (char *)server.sysc.ip, server.sysc.port);
     if (server.http == NULL)
     {
         ploginfo(LERROR, "main->createhttp failed");
         return 1;
     }
 
-    //添加关闭服务器信号处理
-    struct event *uevent = setsignal(server.http->reactor, SIGINT, EV_SIGNAL, closesys, server.http->reactor);
-    if (addsignal(uevent) == SUCCESS)
-    {
-        ploginfo(LDEBUG, "%s", "addsignal ok");
-    }
-    
     //服务器主体逻辑
     if (dispatchhttp(server.http) == FAILED)
     {
@@ -94,6 +76,7 @@ int main(int argc, const char *argv[])
         return 1;
     }
     
+    //关闭http服务器
     if (!destroyhttp(server.http))
     {
         ploginfo(LDEBUG, "main->destroyhttp failed");
@@ -102,6 +85,7 @@ int main(int argc, const char *argv[])
     
     ploginfo(LDEBUG, "main->destroyhttp succeess");
     
+    //释放日志
     if (!destroylog(server.log))
     {
         printf("destroy log failed\n");

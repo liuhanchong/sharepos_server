@@ -94,15 +94,11 @@ static int genlogfile(slog *log, slogtype type, int fnameindex)
     char *name = (char *)malloc(LOGNAMELEN);
     genfilename(log, name, LOGNAMELEN, type);
     
-    printf("new file name=%s index=%d\n", name, type);
-    
 	/*保存最新生成的文件名*/
     if (log->fnamearray[fnameindex])
     {
         free(log->fnamearray[fnameindex]);
         closefile(log->fdarray[fnameindex]);
-        
-        printf("free res\n");
     }
     log->fnamearray[fnameindex] = name;
 
@@ -143,8 +139,6 @@ static void gendir(const char *logdir)
     DIR *dir = opendir(logdir);
     (dir == NULL) ? mkdir(logdir, S_IRUSR | S_IWUSR | S_IXUSR) :
     closedir(dir);
-    
-    printf("gen dir success\n");
 }
 
 /*生成删除的日志文件*/
@@ -152,8 +146,6 @@ static cbool gendelfile(slog *log, slogtype type)
 {
     if (isdelfile(log, type))
     {
-        printf("file is del, logtype=%s\n", getlogtype(type));
-        
         //判断日志目录是都存在
         gendir(log->logdir);
         
@@ -168,8 +160,6 @@ static cbool gendelfile(slog *log, slogtype type)
         
         //成功后才将最新的文件描述符保存
         log->fdarray[fdindex] = tempfileno;
-        
-        printf("new file fd=%d type=%d\n", log->fdarray[fdindex], type);
     }
     
     return SUCCESS;
@@ -202,8 +192,6 @@ static cbool writelog(slog *slog, slogtype type, const char *log, int size)
         
         //成功后才将最新的文件描述符保存
         slog->fdarray[fdindex] = tempfileno;
-        
-        printf("new file fd=%d type=%d\n", slog->fdarray[fdindex], type);
     }
     
     return SUCCESS;
@@ -243,7 +231,6 @@ slog *createlog()
 		{
 			return NULL;
 		}
-        printf("new file fd=%d type=%d\n", log->fdarray[type], type);
 	}
 
 	/*初始互斥量*/

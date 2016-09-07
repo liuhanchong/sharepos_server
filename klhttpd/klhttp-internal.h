@@ -69,6 +69,8 @@ enum
 	HTTP_HEAD,
 	/** unknown method, the server does not support */
 	HTTP_UNKNOWN,
+    /*post request*/
+    HTTP_POST,
 };
 
 /**
@@ -85,7 +87,7 @@ struct http_pro_version
 */
 struct http_request
 {
-	/** request type : GET / HEAD */
+	/** request type : GET / HEAD / POST*/
 	int type;
 	/** request resource */
 	char *uri;
@@ -158,6 +160,23 @@ int http_handle_request( struct evbuffer *buf, const struct http_request *reques
 */
 void http_response_error( struct evbuffer *buf, int status, const char *status_str, const char *more_info );
 
+/**
+  add time header
+*/
+void add_time_header( struct evbuffer *buf );
+    
+/**
+  get an uri's mime string.
+*/
+const char *get_mime_type( const char *uri, char *buf );
+    
+/**
+  check the whether the request is valid, if not, it will write the error response.
+     
+  @return if the request is valid return 0.
+*/
+int check_request_valid( struct evbuffer *buf, const struct http_request *request );
+    
 #ifdef __cplusplus
 }
 #endif

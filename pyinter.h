@@ -10,6 +10,12 @@ typedef struct sysc
 {
     unsigned char ip[20];
     int port;
+    
+    unsigned char host[20];
+    unsigned char user[20];
+    unsigned char paw[20];
+    unsigned char db[20];
+    int dbport;
 } sysc;
 
 #ifdef __cplusplus

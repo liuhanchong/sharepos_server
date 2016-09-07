@@ -1,4 +1,5 @@
 #include "hbeat.h"
+#include "reactor.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
@@ -38,12 +39,26 @@ static void *handlefd(void *data)
             //对于失效的的fd 删除
             if (hbnode->state == 0)
             {
-                ploginfo(LOTHER, "no effect sid=%d", hbnode->fd);
+                //删除事件
+                struct event *event = getevent(hbnode->fd, hebeat->reactor);
+                if (event)
+                {
+                    if (delevent(event) == FAILED)
+                    {
+                        ploginfo(LERROR, "handlefd->delevent failed");
+                    }
+                    else
+                    {
+                        ploginfo(LOTHER, "handlefd->delevent success");
+                    }
+                }
                 
                 if (delheartbeat(hebeat, hbnode->fd) == FAILED)
                 {
                     ploginfo(LERROR, "handlefd->delheartbeat failed");
                 }
+                
+                ploginfo(LOTHER, "no effect sid=%d", hbnode->fd);
             }
             else
             {

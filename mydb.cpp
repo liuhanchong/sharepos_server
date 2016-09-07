@@ -17,21 +17,21 @@ cbool mydb::opendb(struct dbconn *conn)
 	mysql = mysql_init(NULL);
 	if (!mysql)
 	{
-        ploginfo(LDEBUG, "%s", geterror());
+        ploginfo(LERROR, "%s", geterror());
 		return FAILED;
 	}
 
 	if (!mysql_real_connect(mysql, conn->host, conn->user,
 							 conn->pass, conn->dbname, conn->port, conn->unixsock, conn->cliflag))
 	{
-        ploginfo(LDEBUG, "%s", geterror());
+        ploginfo(LERROR, "%s", geterror());
 		closedb();
 		return FAILED;
 	}
 
 	if (mysql_autocommit(mysql, 0) != 0)
 	{
-		ploginfo(LDEBUG, "%s", geterror());
+		ploginfo(LERROR, "%s", geterror());
 		closedb();
 		return FAILED;
 	}
@@ -48,7 +48,7 @@ cbool mydb::querysql(char *sql)
 
 	if (mysql_query(mysql, sql) != 0)
 	{
-        ploginfo(LDEBUG, "mydb::querysql exe query failed, sql=%s", sql);
+        ploginfo(LERROR, "mydb::querysql exe query failed, sql=%s", sql);
 		return FAILED;
 	}
 
@@ -64,13 +64,13 @@ cbool mydb::modifysql(char *sql)
 
 	if (mysql_real_query(mysql, sql, strlen(sql)) != 0)
 	{
-        ploginfo(LDEBUG, "mydb::modifysql mysql_real_query exe query failed, sql=%s, err=%s", sql, geterror());
+        ploginfo(LERROR, "mydb::modifysql mysql_real_query exe query failed, sql=%s, err=%s", sql, geterror());
 		return FAILED;
 	}
 
 	if (mysql_commit(mysql) != 0)
 	{
-        ploginfo(LDEBUG, "mydb::modifysql mysql_commit failed, err=%s", sql, geterror());
+        ploginfo(LERROR, "mydb::modifysql mysql_commit failed, err=%s", sql, geterror());
 		return FAILED;
 	}
 
@@ -88,11 +88,11 @@ cbool mydb::modifysqlex(char **sqlarray, int size)
 	{
 		if (mysql_query(mysql, sqlarray[i]) != 0)
 		{
-            ploginfo(LDEBUG, "mydb::modifysqlex mysql_query exe query failed, sql=%s, err=%s", sqlarray[i], geterror());
+            ploginfo(LERROR, "mydb::modifysqlex mysql_query exe query failed, sql=%s, err=%s", sqlarray[i], geterror());
 
 			if (mysql_rollback(mysql) != 0)
 			{
-				ploginfo(LDEBUG, "mydb::modifysqlex mysql_rollback failed, err=%s", geterror());
+				ploginfo(LERROR, "mydb::modifysqlex mysql_rollback failed, err=%s", geterror());
 			}
 			return FAILED;
 		}

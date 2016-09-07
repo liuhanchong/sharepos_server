@@ -101,6 +101,8 @@ cbool setpidtofile()
 
 		closefile(fileno);
 	}
+    
+    printf("the process id is %d!\n", pid);
 
 	return SUCCESS;
 }

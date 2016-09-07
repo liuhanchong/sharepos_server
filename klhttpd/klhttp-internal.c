@@ -29,7 +29,11 @@ static int _parse_init_line( struct http_request *request, char *line )
 	{
 		request->type = HTTP_HEAD;
 	}
-	else
+    else if( strcmp( token, "POST" ) == 0 )
+    {
+        request->type = HTTP_POST;
+    }
+    else
 	{
 		request->type = HTTP_UNKNOWN;
 	}
@@ -77,7 +81,7 @@ static void _add_headers( struct http_header_head *headers, const char *name, co
 /**
   add time header
 */
-static void _add_time_header( struct evbuffer *buf )
+void add_time_header( struct evbuffer *buf )
 {
 	char date[50];
 #ifndef WIN32
@@ -98,7 +102,7 @@ static void _add_time_header( struct evbuffer *buf )
 /**
   get an uri's mime string.
 */
-static const char *_get_mime_type( const char *uri, char *buf )
+const char *get_mime_type( const char *uri, char *buf )
 {
 	const char *t = uri + strlen( uri );
 	char type[64];
@@ -142,7 +146,7 @@ static const char *_get_mime_type( const char *uri, char *buf )
 
   @return if the request is valid return 0.
 */
-static int _check_request_valid( struct evbuffer *buf, const struct http_request *request )
+int check_request_valid( struct evbuffer *buf, const struct http_request *request )
 {
 	if( request->type == HTTP_UNKNOWN )
 	{
@@ -215,6 +219,42 @@ int http_add_header( struct http_header_head *header_queue, char *line )
 	return 0;
 }
 
+int http_add_jsonvalue( struct http_header_head *header_queue,  struct evbuffer *buf )
+{
+    char *data = NULL;
+    
+    //寻找}
+    int conlen = atoi(http_get_header_value(header_queue, "Content-Length"));
+    if (conlen < 2)
+    {
+        _add_headers(header_queue, "data", "");
+        return 1;
+    }
+    
+    if (EVBUFFER_LENGTH(buf) < conlen)
+    {
+        return 1;
+    }
+    
+    //判断 {
+    if (buf->buffer[EVBUFFER_LENGTH(buf) - conlen] != '{')
+    {
+        return 1;
+    }
+    
+    data = (char *)malloc(conlen);
+    if (data == NULL)
+    {
+        return 1;
+    }
+    
+    memcpy(data, &buf->buffer[EVBUFFER_LENGTH(buf) - conlen], conlen);
+    
+    _add_headers(header_queue, "data", data);
+                 
+    return 0;
+}
+
 const char *http_get_header_value( struct http_header_head *header_queue, const char *header_name )
 {
 	struct http_header *header;
@@ -265,6 +305,9 @@ struct http_request *http_request_parse( struct evbuffer *buf )
 			}
 			line = evbuffer_readline( buf );
 		}
+        
+        //parse data
+        ret = http_add_jsonvalue( request->headers, buf );
 	}
 
 	/* ignore the bodies because it does not support now */
@@ -284,46 +327,6 @@ void http_request_free( struct http_request *request )
 */
 int http_handle_request( struct evbuffer *buf, const struct http_request *request )
 {
-	int ret;
-
-	/* check whether the request is valid */
-	ret = _check_request_valid( buf, request );
-	if( ret == -1 )
-	{
-		return -1;
-	}
-	
-	/* 200 OK */
-	evbuffer_add_printf( buf, "HTTP/%d.%d %d %s\r\n", request->ver.major, request->ver.minor, HTTP_OK, CODE_STR( HTTP_OK ) );
-
-	/* add server info header */
-	evbuffer_add_printf( buf, "Server: sharepos/0.1.0\r\n" );
-	/* add time header */
-	_add_time_header( buf );
-	/* add Content-Type header */
-	{
-		char mime[32];
-		evbuffer_add_printf( buf, "Content-Type: %s\r\n", _get_mime_type( request->uri, mime ) );
-	}
-    //回应数据
-    {
-        if( request->type == HTTP_GET )
-        {
-            
-        }
-        char *text = "wo shi server";
-    
-        /* add Content-Length header */
-        evbuffer_add_printf( buf, "Content-Length: %lu\r\n", strlen(text) );
-    
-        /* add Content-Length header */
-        evbuffer_add_printf( buf, "%s \r\n", text );
-    }
-
-	/* end of headers */
-	evbuffer_add( buf, "\r\n", 2 );
-
-
 	return 0;
 }
 
@@ -346,7 +349,7 @@ void http_response_error( struct evbuffer *buf, int status, const char *status_s
 	/* add server info header */
 	evbuffer_add_printf( buf, "Server: klhttpd/0.1.0\r\n" );
 	/* add time header */
-	_add_time_header( buf );
+	add_time_header( buf );
 	/* content type */
 	evbuffer_add_printf( buf, "Content-Type: text/html\r\n" );
 	/* content length */

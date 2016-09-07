@@ -87,7 +87,7 @@ static void *execute(void *data)
 	return NULL;
 }
 
-thread *createthread(void *(*fun)(void *), void *data, int loopsecond)
+thread *createthread(thfun fun, void *data, int loopsecond)
 {
 	thread *thread = (struct thread *)malloc(sizeof(struct thread));
 	if (!thread)
@@ -169,7 +169,7 @@ cbool isresume(thread *thread)
 	return thread->run;
 }
 
-void setthreadexecute(thread *thread, void *(*fun)(void *), void *data)
+void setthreadexecute(thread *thread, thfun fun, void *data)
 {
 	thread->fun = fun;
 	thread->data = data;

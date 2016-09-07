@@ -31,8 +31,8 @@
 #define EV_CTL_MOD 0x80 //修改读取事件
 #define EV_CTL_DEL 0x100 //删除读取事件
 #define EV_RWERROR 0x200   //读写事件错误
-#define EV_READBUF  1024 /*网络读字节缓冲区*/
-#define EV_WRITEBUF 1024 /*网络写字节缓冲区*/
+#define EV_READBUF (1024 * 4) /*网络读字节缓冲区*/
+#define EV_WRITEBUF (1024 * 4) /*网络写字节缓冲区*/
 #define EV_SIGNUM 256 /*系统信号数量*/
 
 typedef void *(*callback)(void *, void *);
@@ -70,6 +70,7 @@ typedef struct pol
 {
     void *evelist;/*系统内核事件列表 xx_event_t类型*/
     int evelistlen;/*系统内核事件列表长度*/
+    int curlistlen;/*保存当前连接的个数*/
 } pol;
 
 typedef struct reactor

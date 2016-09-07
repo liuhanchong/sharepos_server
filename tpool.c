@@ -116,7 +116,7 @@ cbool destroytpool(tpool *tpool)
 	return SUCCESS;
 }
 
-cbool addttask(tpool *tpool, void *(*fun)(void *), void *data)
+cbool addttask(tpool *tpool, thfun fun, void *data)
 {
 	if (!tpool)
 	{

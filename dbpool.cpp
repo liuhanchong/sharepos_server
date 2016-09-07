@@ -10,7 +10,7 @@ static cbool insert(struct dbpool *dbpool, struct dbconn *conn)
 		return FAILED;
 	}
 
-    dbnode->conn = db::createdbconn(conn);
+    dbnode->conn = db::copydbconn(conn);
 	if (!dbnode->conn)
 	{
 		return FAILED;
@@ -123,7 +123,7 @@ dbnode *getdb(dbpool *dbpool)
 		struct dbnode *fdbnode = (struct dbnode *)headlistnode->data;
 		if (fdbnode->use == 0)
 		{
-            dbnode->use = 1;
+            fdbnode->use = 1;
 			dbnode = fdbnode;
 			break;
 		}

@@ -6,6 +6,9 @@
 /*创建反应堆*/
 struct reactor *createreactor(struct eventtop *etlist, int selevmode);
 
+/*获取事件*/
+struct event *getevent(int fd, struct reactor *reactor);
+
 /*设置事件*/
 struct event *setevent(struct reactor *reactor, int fd, int evtype, callback call, void *arg);
 
@@ -16,7 +19,7 @@ struct event *setsignal(struct reactor *reactor, int fd, int evtype, callback ca
 struct event *settimer(struct reactor *reactor, int evtype, callback call, void *arg);
 
 /*添加事件*/
-cbool addevent(struct event *uevent);
+cbool addevent(struct event *uevent, int hbman);
 
 /*添加信号事件*/
 cbool addsignal(struct event *uevent);

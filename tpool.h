@@ -21,7 +21,7 @@ typedef struct tpool
 
 tpool *createtpool(int maxtnum, int coretnum);
 cbool destroytpool(tpool *tpool);
-cbool addttask(tpool *tpool, void *(*fun)(void *), void *data);/*为线程池添加任务*/
+cbool addttask(tpool *tpool, thfun fun, void *data);/*为线程池添加任务*/
 cbool addthread(tpool *tpool, int addtnum);/*添加线程*/
 
 #endif /* TPOOL_H */

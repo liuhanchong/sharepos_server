@@ -10,19 +10,22 @@ typedef struct pollfd po_event_t;
 cbool createpo(struct reactor *reactor, void *data)
 {
     reactor->pol.evelistlen = reactor->maxconnnum + 1;
-    reactor->pol.evelist = (void *)malloc(sizeof(po_event_t) * reactor->pol.evelistlen);
+    reactor->pol.curlistlen = 0;
+    int size = sizeof(po_event_t) * reactor->pol.evelistlen;
+    reactor->pol.evelist = (void *)malloc(size);
+    memset(reactor->pol.evelist, -1, size);
     return (reactor->pol.evelist == NULL) ? FAILED : SUCCESS;
 }
 
 static int findpolfd(struct event *event, po_event_t *evelist, int fd)
 {
-    int index = event->fd % event->reactor->pol.evelistlen;
+//    int index = event->fd % event->reactor->pol.evelistlen;
     
     //以hash表的形式查找
-    if (evelist[index].fd == fd)
-    {
-        return index;
-    }
+//    if (evelist[index].fd == fd)
+//    {
+//        return index;
+//    }
     
     //没找到 直接遍历所有
     for (int i = 0; i < event->reactor->pol.evelistlen; i++)
@@ -39,7 +42,7 @@ static int findpolfd(struct event *event, po_event_t *evelist, int fd)
 cbool addpo(struct event *event, void *data)
 {
     po_event_t *evelist = (po_event_t *)event->reactor->pol.evelist;
-    int findex = findpolfd(event, evelist, -1);
+    int findex = event->reactor->pol.curlistlen;//findpolfd(event, evelist, -1);
     if (findex >= 0)
     {
         evelist[findex].fd = event->fd;
@@ -48,6 +51,8 @@ cbool addpo(struct event *event, void *data)
         (event->evtype & EV_WRITE) ? POLLOUT :
         (event->evtype & EV_RWERROR) ? POLLERR :
         POLLERR;
+        
+        event->reactor->pol.curlistlen++;
         
         return SUCCESS;
     }
@@ -61,7 +66,10 @@ cbool delpo(struct event *event, void *data)
     int findex = findpolfd(event, evelist, event->fd);
     if (findex >= 0)
     {
-        evelist[findex].fd = -1;
+        event->reactor->pol.curlistlen--;
+        
+        memcpy(&evelist[findex], &evelist[event->reactor->pol.curlistlen], sizeof(po_event_t));
+        
         return SUCCESS;
     }
     
@@ -71,7 +79,7 @@ cbool delpo(struct event *event, void *data)
 cbool dispatchpo(struct reactor *reactor, struct timeval *tv, void *data)
 {
     int watime = (int)(tv->tv_sec * 1000 + tv->tv_usec / 1000);
-    int actnum = poll(reactor->pol.evelist, reactor->pol.evelistlen, watime);
+    int actnum = poll(reactor->pol.evelist, reactor->pol.curlistlen, watime);
     if (actnum == -1)
     {
         return FAILED;
@@ -83,12 +91,14 @@ cbool dispatchpo(struct reactor *reactor, struct timeval *tv, void *data)
     }
     
     po_event_t *event = (po_event_t *)reactor->pol.evelist;
-    for (int i = 0; i < reactor->pol.evelistlen; i++)
+    for (int i = 0; i < reactor->pol.curlistlen; i++)
     {
         if (event[i].revents & POLLIN || event[i].revents & POLLOUT)
         {
             addactevent(event[i].fd, reactor);
         }
+        
+        event[i].revents = -1;
     }
     
     return SUCCESS;

@@ -1,5 +1,8 @@
 #include "http.h"
 
+static void *httpread(void *event, void *data);
+static void *httpwrite(void *event, void *data);
+
 static const char *getfdname(int fd)
 {
     static char buf[128];
@@ -15,37 +18,40 @@ static const char *getfdname(int fd)
     return buf;
 }
 
-/** request handler */
-static struct evbuffer *handlerequest(const struct http_request *request, void *arg)
-{
-    struct evbuffer *outbuf = evbuffer_new();
-    if (http_handle_request(outbuf, request) == 0)
-    {
-        return outbuf;
-    }
-    
-    evbuffer_free(outbuf);
-    return NULL;
-}
-
 static void *httpwrite(void *event, void *data)
 {
-    struct event *uevent = (struct event *)event;
-    struct httpbuf *buf = (struct httpbuf *)uevent->buf;
+    struct event *wuevent = (struct event *)event;
+    struct httpbuf *buf = (struct httpbuf *)wuevent->buf;
     
     if(EVBUFFER_LENGTH(buf->outbuf) <= 0)
     {
-        return NULL;
+        return SUCCESSSTR;
     }
     
-    printf("\r\n%s", buf->outbuf->buffer);
+    ploginfo(LDEBUG, "\r\n%s", buf->outbuf->buffer);
     
     if (evbuffer_write(buf->outbuf, buf->fd) <= 0)
     {
         ploginfo(LERROR, "%s->%s failed", "httpwrite", "evbuffer_write");
+        return FAILEDSTR;
     }
     
-    return NULL;
+    //注册接收事件
+    struct event *ruevent = setevent(wuevent->reactor, wuevent->fd, EV_READ, httpread, data);
+    if (ruevent == NULL)
+    {
+        ploginfo(LERROR, "%s->%s failed clientsock=%d", "acceptconn", "setevent", wuevent->fd);
+        return FAILEDSTR;
+    }
+    
+    //添加接收事件
+    if (addevent(ruevent, 1) == FAILED)
+    {
+        ploginfo(LERROR, "%s->%s failed clientsock=%d", "acceptconn", "addevent", wuevent->fd);
+        return FAILEDSTR;
+    }
+    
+    return SUCCESSSTR;
 }
 
 static void *httpread(void *event, void *data)
@@ -54,33 +60,31 @@ static void *httpread(void *event, void *data)
     
     struct event *ruevent = (struct event *)event;
     struct httpbuf *buf = (struct httpbuf *)ruevent->buf;
+    struct httpserver *server = (struct httpserver *)data;
     
     /*读取数据*/
     int ret = evbuffer_read(buf->inbuf, ruevent->fd, EV_READBUF);
     if(ret <= 0)
     {
-        ploginfo(LERROR, "%s->%s failed sockid=%d errno=%d", "httpread", "recv", ruevent->fd, errno);
-        return NULL;
+        ploginfo(LERROR, "%s->%s failed sockid=%d errno=%d", "httpread", "evbuffer_read", ruevent->fd, errno);
+        return FAILEDSTR;
     }
     
-    printf("\r\n%s", buf->inbuf->buffer);
-    
     /*处理请求*/
-    struct http_request *request = http_request_parse(buf->inbuf);
-    struct evbuffer *outbuf = handlerequest(request, NULL);
-    http_request_free(request);
+    struct evbuffer *outbuf = request(server->req, buf->inbuf);
     if (outbuf == NULL)
     {
-        ploginfo(LERROR, "%s->%s failed clientsock=%d", "httpread", "handlerequest", ruevent->fd);
-        return NULL;
+        ploginfo(LERROR, "httpread->http_handle_request failed");
+        return FAILEDSTR;
     }
     
     //将客户端套接字注册事件
-    struct event *wuevent = setevent(ruevent->reactor, ruevent->fd, EV_WRITE, httpwrite, NULL);
+    struct event *wuevent = setevent(ruevent->reactor, ruevent->fd, EV_WRITE, httpwrite, data);
     if (wuevent == NULL)
     {
+        evbuffer_free(outbuf);
         ploginfo(LERROR, "%s->%s failed clientsock=%d", "httpread", "setevent", ruevent->fd);
-        return NULL;
+        return FAILEDSTR;
     }
     
     //将回应的数据写入事件
@@ -88,13 +92,13 @@ static void *httpread(void *event, void *data)
     evbuffer_free(outbuf);
     
     //添加注册事件
-    if (addevent(wuevent) == FAILED)
+    if (addevent(wuevent, 1) == FAILED)
     {
         ploginfo(LERROR, "%s->%s failed clientsock=%d", "httpread", "addevent", ruevent->fd);
-        return NULL;
+        return FAILEDSTR;
     }
     
-    return NULL;
+    return SUCCESSSTR;
 }
 
 static void *httpaccept(void *event, void *data)
@@ -107,33 +111,33 @@ static void *httpaccept(void *event, void *data)
     if (clisock < 0)
     {
         ploginfo(LERROR, "%s->%s failed clientsock=%d, errno=%d", "httpaccept", "accept", clisock, errno);
-        return NULL;
+        return FAILEDSTR;
     }
     
     //将socket设置为non_blocked
     setnoblock(clisock);
     
     //将客户端套接字注册事件
-    struct event *uevent = setevent(server->reactor, clisock, EV_READ, httpread, NULL);
+    struct event *uevent = setevent(server->reactor, clisock, EV_READ, httpread, server);
     if (uevent == NULL)
     {
         ploginfo(LERROR, "%s->%s failed clientsock=%d", "acceptconn", "setevent", clisock);
-        return NULL;
+        return FAILEDSTR;
     }
     
-    //添加注册事件
-    if (addevent(uevent) == FAILED)
+    //添加客户端事件
+    if (addevent(uevent, 1) == FAILED)
     {
         ploginfo(LERROR, "%s->%s failed clientsock=%d", "acceptconn", "addevent", clisock);
-        return NULL;
+        return FAILEDSTR;
     }
     
     ploginfo(LDEBUG, "%s->%s sockid=%d, ip=%s success", "acceptconn", "accept", clisock, getfdname(clisock));
     
-    return NULL;
+    return SUCCESSSTR;
 }
 
-struct httpserver *createhttp(struct eventtop *etlist, char *ip, int port)
+struct httpserver *createhttp(struct sysc *sysc, struct eventtop *etlist, char *ip, int port)
 {
     struct httpserver *httpserver = (struct httpserver *)malloc(sizeof(struct httpserver));
     if (!httpserver)
@@ -142,7 +146,7 @@ struct httpserver *createhttp(struct eventtop *etlist, char *ip, int port)
     }
     
     //创建反应堆模型
-    if ((httpserver->reactor = createreactor(etlist, 0)) == NULL)
+    if ((httpserver->reactor = createreactor(etlist, 1)) == NULL)
     {
         ploginfo(LDEBUG, "createhttp->createreactor failed");
         return NULL;
@@ -162,7 +166,6 @@ struct httpserver *createhttp(struct eventtop *etlist, char *ip, int port)
     setsocketopt(httpserver->httpsock, SOL_SOCKET, SO_KEEPALIVE, (void *)&flags, sizeof(flags));
     setsocketopt(httpserver->httpsock, SOL_SOCKET, SO_LINGER, (void *)&linger, sizeof(linger));
     setsocketopt(httpserver->httpsock, SOL_SOCKET, SO_REUSEADDR, (void *)&flags, sizeof(flags));
-//	setsocketopt(sockid, IPPROTO_IP, TCP_NODELAY, (void *)&flags, sizeof(flags));
     
     struct sockaddr_in sockaddr;
     setsockaddrin(&sockaddr, AF_INET, port, ip);
@@ -186,9 +189,17 @@ struct httpserver *createhttp(struct eventtop *etlist, char *ip, int port)
         return NULL;
     }
     
-    if (addevent(uevent) == FAILED)
+    if (addevent(uevent, 0) == FAILED)
     {
         ploginfo(LDEBUG, "%s->%s failed sersock=%d", "createhttp", "addevent", httpserver->httpsock);
+        return NULL;
+    }
+    
+    //添加req服务
+    httpserver->req =  createrequest(sysc);
+    if (httpserver->req == NULL)
+    {
+        ploginfo(LDEBUG, "%s->%s failed", "createhttp", "createrequest");
         return NULL;
     }
     
@@ -205,11 +216,19 @@ cbool destroyhttp(struct httpserver *server)
     //server->httpsock 已在reactor注册 会在destroyreactor 中自动关闭
     //close(server->httpsock);
     
-    if (destroyreactor(server->reactor) == FAILED)
+    if (destroyrequest(server->req) == FAILED)
     {
-        ploginfo(LDEBUG, "main->destroyreactor failed");
+        ploginfo(LDEBUG, "destroyhttp->destroyrequest failed");
         return FAILED;
     }
+    
+    if (destroyreactor(server->reactor) == FAILED)
+    {
+        ploginfo(LDEBUG, "destroyhttp->destroyreactor failed");
+        return FAILED;
+    }
+    
+    free(server);
     
     return SUCCESS;
 }

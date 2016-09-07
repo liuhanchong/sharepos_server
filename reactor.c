@@ -2,8 +2,17 @@
 #include "evbuffer.h"
 #include "http.h"
 
-/*全局reactor*/
+/*全局reactor 用于信号注册*/
 static struct reactor *glreactor = NULL;
+
+static void *stopdispatch(void *event, void *arg)
+{
+    ((struct reactor *)arg)->listen = 0;
+    
+    ploginfo(LDEBUG, "stop reactor");
+    
+    return NULL;
+}
 
 static struct event *cpevent(struct event *sevent)
 {
@@ -87,7 +96,7 @@ static void *clearsig(void *event, void *arg)
         recv(uevent->fd, array, size, 0);
     }
     
-    return NULL;
+    return SUCCESSSTR;
 }
 
 /*获取最小超时时间*/
@@ -210,9 +219,6 @@ static void handle(struct reactor *reactor)
         {
             struct event *bkevent = cpevent(uevent);
             
-            //非持久事件自动从系统中删除
-            reactor->selmode.selevtop->del(uevent, NULL);
-            
             //从用户中删除
             if (delevent(uevent) == FAILED)
             {
@@ -227,7 +233,27 @@ static void handle(struct reactor *reactor)
         }
         
         //调用接口函数
-        uevent->call(uevent, uevent->arg);
+        if (uevent->call(uevent, uevent->arg) == FAILEDSTR)
+        {
+            //调用失败
+            if (uevent->evtype & EV_PERSIST)
+            {
+                //从用户中删除
+                if (delevent(uevent) == FAILED)
+                {
+                    ploginfo(LERROR, "handle->call->delevent failed");
+                }
+                
+                if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
+                {
+                    close(uevent->fd);
+                }
+                
+                frevent(uevent);
+                
+                continue;
+            }
+        }
         
         //定时器事件
         if (uevent->evtype & EV_TIMER)
@@ -261,15 +287,6 @@ static void handle(struct reactor *reactor)
             frevent(uevent);
         }
     }
-}
-
-/*获取事件*/
-static struct event *getevent(int fd, struct reactor *reactor)
-{
-    assert((reactor != NULL && fd >= 0));
-    
-    //获取事件
-    return getitemvaluebyid(reactor->uevelist, fd);
 }
 
 /*创建反应堆*/
@@ -366,7 +383,19 @@ struct reactor *createreactor(struct eventtop *etlist, int selevmode)
         return NULL;
     }
     
-    if (addevent(uevent) == FAILED)
+    if (addevent(uevent, 0) == FAILED)
+    {
+        return NULL;
+    }
+    
+    //添加关闭服务器信号处理
+    uevent = setsignal(newreactor, SIGINT, EV_SIGNAL, stopdispatch, newreactor);
+    if (uevent == NULL)
+    {
+        return NULL;
+    }
+    
+    if (addsignal(uevent) == FAILED)
     {
         return NULL;
     }
@@ -375,6 +404,15 @@ struct reactor *createreactor(struct eventtop *etlist, int selevmode)
     newreactor->listen = 1;
     
     return newreactor;
+}
+
+/*获取事件*/
+struct event *getevent(int fd, struct reactor *reactor)
+{
+    assert((reactor != NULL && fd >= 0));
+    
+    //获取事件
+    return getitemvaluebyid(reactor->uevelist, fd);
 }
 
 /*设置事件*/
@@ -415,7 +453,7 @@ struct event *settimer(struct reactor *reactor, int evtype, callback call, void 
 }
 
 /*添加事件*/
-cbool addevent(struct event *uevent)
+cbool addevent(struct event *uevent, int hbman)
 {
     assert((uevent != NULL));
     
@@ -439,9 +477,13 @@ cbool addevent(struct event *uevent)
             return FAILED;
         }
         
-        if (addheartbeat(uevent->reactor->hbeat, uevent->fd) != SUCCESS)
+        //当加入的事件需要心跳管理
+        if (hbman > 0)
         {
-            ploginfo(LERROR, "%s->%s failed clientsock=%d", "acceptconn", "addheartbeat", uevent->fd);
+            if (addheartbeat(uevent->reactor->hbeat, uevent->fd) != SUCCESS)
+            {
+                ploginfo(LERROR, "%s->%s failed clientsock=%d", "acceptconn", "addheartbeat", uevent->fd);
+            }
         }
         
         //加入到用户事件列表
@@ -545,6 +587,12 @@ cbool delevent(struct event *uevent)
     }
     else if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
     {
+        //非持久事件自动从系统中删除
+        if (uevent->reactor->selmode.selevtop->del(uevent, NULL) == FAILED)
+        {
+            ploginfo(LERROR, "%s->%s success clientsock=%d", "delevent", "del", uevent->fd);
+        }
+        
         if (delheartbeat(uevent->reactor->hbeat, uevent->fd) == SUCCESS)
         {
             ploginfo(LDEBUG, "%s->%s success clientsock=%d", "delevent", "delheartbeat", uevent->fd);

@@ -4,6 +4,8 @@
 #include "util.h"
 #include <pthread.h>
 
+typedef void *(*thfun)(void *);
+
 typedef struct thread
 {
 	pthread_t thid;
@@ -17,7 +19,7 @@ typedef struct thread
 } thread;
 
 /*创建新线程*/
-thread *createthread(void *(*fun)(void *), void *data, int loopsecond);
+thread *createthread(thfun fun, void *data, int loopsecond);
 /*销毁线程*/
 cbool destroythread(thread *thread);
 /*设置线程执行状态*/
@@ -25,6 +27,6 @@ cbool enablethread(thread *thread, int enable);
 /*线程当前运行状态*/
 cbool isresume(thread *thread);
 /*设置线程执行的任务*/
-void setthreadexecute(thread *thread, void *(*fun)(void *), void *data);
+void setthreadexecute(thread *thread, thfun fun, void *data);
 
 #endif

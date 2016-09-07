@@ -7,6 +7,8 @@
 #include "reactor.h"
 #include "evbuffer.h"
 #include "klhttp-internal.h"
+#include "request.h"
+#include "pyinter.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,6 +16,7 @@ typedef struct httpserver
 {
     struct reactor *reactor;
     int httpsock;/*服务器套接字*/
+    struct req *req;/*请求服务*/
 } httpserver;
 
 typedef struct httpbuf
@@ -23,7 +26,7 @@ typedef struct httpbuf
     struct evbuffer *outbuf;
 } httpbuf;
 
-struct httpserver *createhttp(struct eventtop *etlist, char *ip, int port);
+struct httpserver *createhttp(struct sysc *sysc, struct eventtop *etlist, char *ip, int port);
 
 cbool dispatchhttp(struct httpserver *server);
 

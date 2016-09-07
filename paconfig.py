@@ -137,6 +137,13 @@ class sys :
         self.ip = ""
         self.port = 0
         
+        self.host = ""
+        self.user = ""
+        self.paw = ""
+        self.db = ""
+        self.dbport = 0
+    
+        
     def getip(self) :
         return self.ip
     
@@ -148,17 +155,56 @@ class sys :
     
     def setport(self, port) :
         self.port = port
+    
+    def gethost(self) :
+        return self.host
+    
+    def getuser(self) :
+        return self.user
+    
+    def getpaw(self) :
+        return self.paw
+    
+    def getdb(self) :
+        return self.db
+    
+    def getdbport(self) :
+        return self.dbport
+
+    def sethost(self, host) :
+            self.host = host
+
+    def setuser(self, user) :
+        self.user = user
+
+    def setpaw(self, paw) :
+        self.paw = paw
+
+    def setdb(self, db) :
+        self.db = db
+
+    def setdbport(self, dbport) :
+        self.dbport = dbport
+
 
 def getsyscon(filename, sysc) :
     f = openconfig(filename)
     if f == None :
         return 0
 
-    ip = pastring(f, "NET", "ip", "127.0.0.1")
-    sysc.setip(ip)
-    
-    port = paint(f, "NET", "port", 8888)
-    sysc.setport(port)
+    sysc.setip(pastring(f, "NET", "ip", "127.0.0.1"))
+
+    sysc.setport(paint(f, "NET", "port", 8080))
+
+    sysc.sethost(pastring(f, "DB", "host", "127.0.0.1"))
+
+    sysc.setuser(pastring(f, "DB", "user", "root"))
+
+    sysc.setpaw(pastring(f, "DB", "pass", "root"))
+
+    sysc.setdb(pastring(f, "DB", "db", "sharepos"))
+
+    sysc.setdbport(paint(f, "DB", "port", 3306))
     
     closeconfig(f)
         
