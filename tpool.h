@@ -3,25 +3,31 @@
 
 #include "thread.h"
 #include "list.h"
-#include "util.h"
 
-typedef struct tnode
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct tnode
 {
-	thread *thread;
+	struct thread *thread;
 	time_t accesstime;
 	time_t exetime;
-} tnode;
+};
 
-typedef struct tpool
+struct tpool
 {
-	list *tlist;
+	struct list *tlist;
 	int maxtnum;/*最大线程数*/
 	int coretnum;/*核心的线程数*/	
-} tpool;
+};
 
-tpool *createtpool(int maxtnum, int coretnum);
-cbool destroytpool(tpool *tpool);
-cbool addttask(tpool *tpool, thfun fun, void *data);/*为线程池添加任务*/
-cbool addthread(tpool *tpool, int addtnum);/*添加线程*/
+struct tpool *createtpool(int maxtnum, int coretnum);
+int destroytpool(struct tpool *tpool);
+int addttask(struct tpool *tpool, thfun fun, void *data);/*为线程池添加任务*/
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TPOOL_H */

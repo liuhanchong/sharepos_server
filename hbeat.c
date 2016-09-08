@@ -1,5 +1,7 @@
 #include "hbeat.h"
-#include "reactor.h"
+#include "evself.h"
+#include "util.h"
+#include "log.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
@@ -7,7 +9,7 @@
 
 static void *handlefd(void *data)
 {
-	heartbeat *hebeat = (heartbeat *)data;
+	struct heartbeat *hebeat = (struct heartbeat *)data;
     
     int rtconnnum = 0;/*计算实时连接数*/
     struct hbnode *hbnode = NULL;
@@ -43,7 +45,7 @@ static void *handlefd(void *data)
                 struct event *event = getevent(hbnode->fd, hebeat->reactor);
                 if (event)
                 {
-                    if (delevent(event) == FAILED)
+                    if (delevent(event) == 0)
                     {
                         ploginfo(LERROR, "handlefd->delevent failed");
                     }
@@ -69,17 +71,17 @@ static void *handlefd(void *data)
 	return NULL;
 }
 
-static void freehbnode(hbnode *hbnode)
+static void freehbnode(struct hbnode *hbnode)
 {
-    free(hbnode);
+    cfree(hbnode);
 }
 
-heartbeat *createheartbeat(int connnum, int outtime)
+struct heartbeat *createheartbeat(int connnum, int outtime)
 {
 	connnum = (connnum > 0) ? connnum : 1024;
 	outtime = (outtime > 0) ? outtime : 1;
 
-	heartbeat *newhb = (heartbeat *)malloc(sizeof(heartbeat));
+	struct heartbeat *newhb = cnew(struct heartbeat);
 	if (!newhb)
 	{
 		return NULL;
@@ -103,7 +105,7 @@ heartbeat *createheartbeat(int connnum, int outtime)
 	return newhb;
 }
 
-cbool destroyheartbeat(heartbeat *hebeat)
+int destroyheartbeat(struct heartbeat *hebeat)
 {
 	destroythread(hebeat->hbthread);
     
@@ -119,17 +121,17 @@ cbool destroyheartbeat(heartbeat *hebeat)
     }
     destroyhashtable(hebeat->hbtable);
     
-    free(hebeat);
+    cfree(hebeat);
 
-	return SUCCESS;
+	return 1;
 }
 
-cbool addheartbeat(heartbeat *hebeat, int fd)
+int addheartbeat(struct heartbeat *hebeat, int fd)
 {
-    struct hbnode *newnode = (struct hbnode *)malloc(sizeof(struct hbnode));
+    struct hbnode *newnode = cnew(struct hbnode);
     if (!newnode)
     {
-        return FAILED;
+        return 0;
     }
     
     newnode->fd = fd;
@@ -146,9 +148,9 @@ cbool addheartbeat(heartbeat *hebeat, int fd)
     return ret;
 }
 
-cbool delheartbeat(heartbeat *hebeat, int fd)
+int delheartbeat(struct heartbeat *hebeat, int fd)
 {
-    int ret = FAILED;
+    int ret = 0;
     lock(hebeat->hbtable->tablemutex);
     //删除节点值
     freehbnode(getitemvaluebyid(hebeat->hbtable, fd));
@@ -161,9 +163,9 @@ cbool delheartbeat(heartbeat *hebeat, int fd)
 	return ret;
 }
 
-cbool upheartbeat(heartbeat *hebeat, int fd)
+int upheartbeat(struct heartbeat *hebeat, int fd)
 {
-    int ret = FAILED;
+    int ret = 0;
     lock(hebeat->hbtable->tablemutex);
     struct hbnode *hbnode = getitemvaluebyid(hebeat->hbtable, fd);
 
@@ -172,7 +174,7 @@ cbool upheartbeat(heartbeat *hebeat, int fd)
         hbnode->failed = 0;
         hbnode->time = time(NULL);
         
-        ret = SUCCESS;
+        ret = 1;
     }
     unlock(hebeat->hbtable->tablemutex);
     

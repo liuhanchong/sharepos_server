@@ -1,4 +1,6 @@
 #include "tpool.h"
+#include "util.h"
+#include "log.h"
 #include <stdlib.h>
 
 static void *defaulttfun(void *data)
@@ -6,37 +8,34 @@ static void *defaulttfun(void *data)
 	return NULL;
 }
 
-static cbool insert(tpool *tpool)
+static int insert(struct tpool *tpool)
 {
-	tnode *newtnode = (tnode *)malloc(sizeof(tnode));
+    struct tnode *newtnode = cnew(struct tnode);
 	if (!newtnode)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	newtnode->thread = createthread(defaulttfun, newtnode, -1);
 	if (!newtnode->thread)
 	{
-		free(newtnode);
-		return FAILED;
+		return 0;
 	}
 
 	newtnode->accesstime = time(NULL);
 	newtnode->exetime = newtnode->accesstime;
 
-	if (push(tpool->tlist, (void *)newtnode, 0) == FAILED)
+	if (push(tpool->tlist, (void *)newtnode, 0) == 0)
 	{
-        destroythread(newtnode->thread);
-        free(newtnode);
-		return FAILED;
+		return 0;
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-static tnode *getfreet(tpool *tpool)
+static struct tnode *getfreet(struct tpool *tpool)
 {
-	tnode *tnode = NULL;
+	struct tnode *tnode = NULL;
 	forlist(tpool->tlist)
 	{
 		tnode = (struct tnode *)headlistnode->data;
@@ -50,9 +49,9 @@ static tnode *getfreet(tpool *tpool)
 	return tnode;
 }
 
-static cbool delthread(tpool *tpool, tnode *tnode)
+static int delthread(struct tpool *tpool, struct tnode *tnode)
 {
-    int ret = FAILED;
+    int ret = 0;
     lock(tpool->tlist->thmutex);
     forlist(tpool->tlist)
     {
@@ -60,7 +59,7 @@ static cbool delthread(tpool *tpool, tnode *tnode)
         if (ftnode == tnode)
         {
             ret = destroythread(tnode->thread);
-            free(tnode);
+            cfree(tnode);
             delnode(tpool->tlist, headlistnode);
             break;
         }
@@ -69,9 +68,32 @@ static cbool delthread(tpool *tpool, tnode *tnode)
     return ret;
 }
 
-tpool *createtpool(int maxtnum, int coretnum)
+static int addthread(struct tpool *tpool, int addtnum)
 {
-	tpool *newtpool = malloc(sizeof(tpool));
+    if (tpool->maxtnum - addtnum < getcurlistlen(tpool->tlist))
+    {
+        return 0;
+    }
+    
+    int ret = 1;
+    lock(tpool->tlist->thmutex);
+    for (int i = 1; i <= addtnum; i++)
+    {
+        if (insert(tpool) == 0)
+        {
+            ret = 0;
+            ploginfo(LDEBUG, "insert new thread failed seq=%d, total=%d", i, addtnum);
+            break;
+        }
+    }
+    unlock(tpool->tlist->thmutex);
+    
+    return ret;
+}
+
+struct tpool *createtpool(int maxtnum, int coretnum)
+{
+	struct tpool *newtpool = cnew(struct tpool);
 	if (!newtpool)
 	{
 		return NULL;
@@ -83,82 +105,59 @@ tpool *createtpool(int maxtnum, int coretnum)
 	newtpool->maxtnum = (maxtnum > 0) ? maxtnum : 10; 
 
 	if ((newtpool->tlist = createlist(maxtnum, 0, NULL)) == NULL ||
-		addthread(newtpool, coretnum) == FAILED)
+		addthread(newtpool, coretnum) == 0)
 	{
-		free(newtpool);
+		cfree(newtpool);
 		return NULL;
 	}
 
 	return newtpool;
 }
 
-cbool destroytpool(tpool *tpool)
+int destroytpool(struct tpool *tpool)
 {
 	if (!tpool)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	forlist(tpool->tlist)
 	{
 		struct tnode *tnode = (struct tnode *)headlistnode->data;
-		if (destroythread(tnode->thread) == FAILED)
+		if (destroythread(tnode->thread) == 0)
 		{
             ploginfo(LDEBUG, "destroytpool->destroythread failed");
 		}
-		free(tnode);
+		cfree(tnode);
 	}
 
 	destroylist(tpool->tlist);
 
-	free(tpool);
+	cfree(tpool);
 
-	return SUCCESS;
+	return 1;
 }
 
-cbool addttask(tpool *tpool, thfun fun, void *data)
+int addttask(struct tpool *tpool, thfun fun, void *data)
 {
 	if (!tpool)
 	{
-		return FAILED;
+		return 0;
 	}
 
-	int ret = FAILED;
+	int ret = 0;
 	lock(tpool->tlist->thmutex);
-	tnode *tnode = getfreet(tpool);
+	struct tnode *tnode = getfreet(tpool);
 	if (tnode)
 	{
 		setthreadexecute(tnode->thread, fun, data);
 
-		if (enablethread(tnode->thread, 1) == SUCCESS)
+		if (enablethread(tnode->thread, 1) == 1)
 		{
 			tnode->accesstime = time(NULL);
 			tnode->exetime = tnode->accesstime;
 
-			ret = SUCCESS;
-		}
-	}
-	unlock(tpool->tlist->thmutex);
-
-	return ret;
-}
-
-cbool addthread(tpool *tpool, int addtnum)
-{
-	if (tpool->maxtnum - addtnum < getcurlistlen(tpool->tlist))
-	{
-		return FAILED;
-	}
-
-	int ret = SUCCESS;
-	lock(tpool->tlist->thmutex);
-	for (int i = 1; i <= addtnum; i++)
-	{
-		if (insert(tpool) == FAILED)
-		{
-			ret = FAILED;
-            ploginfo(LDEBUG, "insert new thread failed seq=%d, total=%d", i, addtnum);
-			break;
+			ret = 1;
 		}
 	}
 	unlock(tpool->tlist->thmutex);

@@ -30,13 +30,6 @@ public:
     pyobject *getdictitem(pyobject *dict, char *item);
     pyobject *insclass(char *mo, char *cla, pyobject *arg, pyobject *kw);
     pyobject *callmethod(pyobject *cla, char *method);
-    
-private:
-    
-public:
-    
-private:
-    
 };
 
 parsepy::parsepy()
@@ -213,7 +206,7 @@ pyobject *parsepy::callmethod(pyobject *cla, char *method)
     return PyObject_CallMethod(cla, method, NULL);
 }
 
-cbool getsyscon(const char *filename, struct sysc *sysc)
+int getsyscon(const char *filename, struct sysc *sysc)
 {	
 	try
 	{
@@ -226,7 +219,7 @@ cbool getsyscon(const char *filename, struct sysc *sysc)
 		pyobject *sysclass = py.insclass((char *)"paconfig", (char *)"sys", NULL, NULL);
         if (!sysclass)
         {
-            return FAILED;
+            return 0;
         }
 
 		//read config
@@ -235,7 +228,7 @@ cbool getsyscon(const char *filename, struct sysc *sysc)
 		pyobject *ret = py.exem((char *)"paconfig", (char *)"getsyscon", argtuple);
         if (!ret)
         {
-            return FAILED;
+            return 0;
         }
         
         //获取服务器配置
@@ -263,8 +256,8 @@ cbool getsyscon(const char *filename, struct sysc *sysc)
 	}
 	catch (exception &e)
 	{
-		return FAILED;
+		return 0;
 	}
 
-	return SUCCESS;	
+	return 1;
 }

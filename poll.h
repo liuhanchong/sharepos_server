@@ -2,19 +2,22 @@
 #define POLL_H
 
 #include "evself.h"
-#include "reactor.h"
 #include <poll.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct pollfd po_event_t;
 
-cbool createpo(struct reactor *reactor, void *data)
+int createpo(struct reactor *reactor, void *data)
 {
     reactor->pol.evelistlen = reactor->maxconnnum + 1;
     reactor->pol.curlistlen = 0;
     int size = sizeof(po_event_t) * reactor->pol.evelistlen;
-    reactor->pol.evelist = (void *)malloc(size);
+    reactor->pol.evelist = (void *)cmalloc(size);
     memset(reactor->pol.evelist, -1, size);
-    return (reactor->pol.evelist == NULL) ? FAILED : SUCCESS;
+    return (reactor->pol.evelist == NULL) ? 0 : 1;
 }
 
 static int findpolfd(struct event *event, po_event_t *evelist, int fd)
@@ -31,7 +34,7 @@ static int findpolfd(struct event *event, po_event_t *evelist, int fd)
     return -1;
 }
 
-cbool addpo(struct event *event, void *data)
+int addpo(struct event *event, void *data)
 {
     po_event_t *evelist = (po_event_t *)event->reactor->pol.evelist;
     int findex = event->reactor->pol.curlistlen;//findpolfd(event, evelist, -1);
@@ -46,13 +49,13 @@ cbool addpo(struct event *event, void *data)
         
         event->reactor->pol.curlistlen++;
         
-        return SUCCESS;
+        return 1;
     }
     
-    return FAILED;
+    return 0;
 }
 
-cbool delpo(struct event *event, void *data)
+int delpo(struct event *event, void *data)
 {
     po_event_t *evelist = (po_event_t *)event->reactor->pol.evelist;
     int findex = findpolfd(event, evelist, event->fd);
@@ -62,24 +65,24 @@ cbool delpo(struct event *event, void *data)
         
         memcpy(&evelist[findex], &evelist[event->reactor->pol.curlistlen], sizeof(po_event_t));
         
-        return SUCCESS;
+        return 1;
     }
     
-    return FAILED;
+    return 0;
 }
 
-cbool dispatchpo(struct reactor *reactor, struct timeval *tv, void *data)
+int dispatchpo(struct reactor *reactor, struct timeval *tv, void *data)
 {
     int watime = (int)(tv->tv_sec * 1000 + tv->tv_usec / 1000);
     int actnum = poll(reactor->pol.evelist, reactor->pol.curlistlen, watime);
     if (actnum == -1)
     {
-        return FAILED;
+        return 0;
     }
     
     if (actnum == 0)
     {
-        return SUCCESS;
+        return 1;
     }
     
     po_event_t *event = (po_event_t *)reactor->pol.evelist;
@@ -93,13 +96,13 @@ cbool dispatchpo(struct reactor *reactor, struct timeval *tv, void *data)
         event[i].revents = -1;
     }
     
-    return SUCCESS;
+    return 1;
 }
 
-cbool destroypo(struct reactor *reactor, void *data)
+int destroypo(struct reactor *reactor, void *data)
 {
-    free(reactor->pol.evelist);
-    return SUCCESS;
+    cfree(reactor->pol.evelist);
+    return 1;
 }
 
 void setevtoppo(struct eventtop *evtop, int etindex)
@@ -113,5 +116,9 @@ void setevtoppo(struct eventtop *evtop, int etindex)
     evtop[etindex].dispatch = dispatchpo;
     evtop[etindex].destroy = destroypo;
 }
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif 

@@ -1,5 +1,8 @@
 #include "db.h"
 #include "mydb.h"
+#include "util.h"
+#include <stdlib.h>
+#include <string.h>
 
 db::db()
 {
@@ -12,7 +15,7 @@ db::~db()
 char *db::copystr(char *str)
 {
     size_t size = strlen(str);
-    char *nstr = (char *)malloc(size + 1);
+    char *nstr = (char *)cmalloc(size + 1);
     memcpy(nstr, str, size);
     nstr[size] = '\0';
     
@@ -21,7 +24,7 @@ char *db::copystr(char *str)
 
 struct dbconn *db::copydbconn(struct dbconn *conn)
 {
-    struct dbconn *dbconn = (struct dbconn *)malloc(sizeof(struct dbconn));
+    struct dbconn *dbconn = cnew(struct dbconn);
     if (!dbconn)
     {
         return NULL;
@@ -46,7 +49,7 @@ struct dbconn *db::createdbconn(char *host,
                                    unsigned long cliflag,
                                    unsigned int port)
 {
-    struct dbconn *dbconn = (struct dbconn *)malloc(sizeof(struct dbconn));
+    struct dbconn *dbconn = cnew(struct dbconn);
     if (!dbconn)
     {
         return NULL;
@@ -65,12 +68,12 @@ struct dbconn *db::createdbconn(char *host,
 
 void db::destroydbconn(struct dbconn *conn)
 {
-    free(conn->host);
-    free(conn->user);
-    free(conn->pass);
-    free(conn->dbname);
-    free(conn->unixsock);
-    free(conn);
+    cfree(conn->host);
+    cfree(conn->user);
+    cfree(conn->pass);
+    cfree(conn->dbname);
+    cfree(conn->unixsock);
+    cfree(conn);
 }
 
 /*根据数据库类型实例化数据库*/

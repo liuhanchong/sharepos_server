@@ -1,4 +1,5 @@
 #include "thread.h"
+#include "util.h"
 #include <unistd.h>
 #include <stdlib.h>
 
@@ -38,7 +39,7 @@ void cleanup(void *data)
 			} \
 		} 
 
-static cbool setcancelmode(int mode)
+static int setcancelmode(int mode)
 {
 	if (mode)
 	{
@@ -46,7 +47,7 @@ static cbool setcancelmode(int mode)
 		if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL) == 0 &&
 			pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL) == 0)
 		{
-			return SUCCESS;
+			return 1;
 		}
 	}
 	else
@@ -54,17 +55,17 @@ static cbool setcancelmode(int mode)
         //线程不允许设置取消点
 		if (pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL) == 0)
 		{
-			return SUCCESS;
+			return 1;
 		}
 	}
-	return FAILED;
+	return 0;
 }
 
 static void *execute(void *data)
 {
-	thread *thread = (struct thread *)data;
+	struct thread *thread = (struct thread *)data;
 
-	if (setcancelmode(1) == FAILED)
+	if (setcancelmode(1) == 0)
 	{
 		return NULL;
 	}
@@ -87,9 +88,9 @@ static void *execute(void *data)
 	return NULL;
 }
 
-thread *createthread(thfun fun, void *data, int loopsecond)
+struct thread *createthread(thfun fun, void *data, int loopsecond)
 {
-	thread *thread = (struct thread *)malloc(sizeof(struct thread));
+    struct thread *thread = cnew(struct thread);
 	if (!thread)
 	{
 		return NULL;
@@ -113,16 +114,16 @@ thread *createthread(thfun fun, void *data, int loopsecond)
 		}
 	}
 
-	free(thread);
+	cfree(thread);
 
 	return NULL;
 }
 
-cbool destroythread(thread *thread)
+int destroythread(struct thread *thread)
 {
 	if (!thread)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	if (pthread_cancel(thread->thid) == 0 &&
@@ -130,18 +131,18 @@ cbool destroythread(thread *thread)
 		pthread_cond_destroy(&thread->thcondition) == 0 &&
 		pthread_mutex_destroy(&thread->thmutex) == 0)
 	{
-		free(thread);
+		cfree(thread);
 		thread = NULL;
-		return SUCCESS;
+		return 1;
 	}
 
-	free(thread);
+	cfree(thread);
 	thread = NULL;
 
-	return FAILED;
+	return 0;
 }
 
-cbool enablethread(thread *thread, int enable)
+int enablethread(struct thread *thread, int enable)
 {
 	if (lock(thread->thmutex) == 0)
 	{
@@ -157,19 +158,19 @@ cbool enablethread(thread *thread, int enable)
 
 		if (unlock(thread->thmutex) == 0)
 		{
-			return SUCCESS;
+			return 1;
 		}
 	}
 	
-	return FAILED;
+	return 0;
 }
 
-cbool isresume(thread *thread)
+int isresume(struct thread *thread)
 {
 	return thread->run;
 }
 
-void setthreadexecute(thread *thread, thfun fun, void *data)
+void setthreadexecute(struct thread *thread, thfun fun, void *data)
 {
 	thread->fun = fun;
 	thread->data = data;

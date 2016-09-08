@@ -1,4 +1,5 @@
 #include "mydb.h"
+#include "log.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -12,13 +13,13 @@ mydb::~mydb()
 {
 }
 
-cbool mydb::opendb(struct dbconn *conn)
+int mydb::opendb(struct dbconn *conn)
 {
 	mysql = mysql_init(NULL);
 	if (!mysql)
 	{
         ploginfo(LERROR, "%s", geterror());
-		return FAILED;
+		return 0;
 	}
 
 	if (!mysql_real_connect(mysql, conn->host, conn->user,
@@ -26,62 +27,62 @@ cbool mydb::opendb(struct dbconn *conn)
 	{
         ploginfo(LERROR, "%s", geterror());
 		closedb();
-		return FAILED;
+		return 0;
 	}
 
 	if (mysql_autocommit(mysql, 0) != 0)
 	{
 		ploginfo(LERROR, "%s", geterror());
 		closedb();
-		return FAILED;
+		return 0;
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-cbool mydb::querysql(char *sql)
+int mydb::querysql(char *sql)
 {
 	if (!sql)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	if (mysql_query(mysql, sql) != 0)
 	{
         ploginfo(LERROR, "mydb::querysql exe query failed, sql=%s", sql);
-		return FAILED;
+		return 0;
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-cbool mydb::modifysql(char *sql)
+int mydb::modifysql(char *sql)
 {
 	if (!sql)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	if (mysql_real_query(mysql, sql, strlen(sql)) != 0)
 	{
         ploginfo(LERROR, "mydb::modifysql mysql_real_query exe query failed, sql=%s, err=%s", sql, geterror());
-		return FAILED;
+		return 0;
 	}
 
 	if (mysql_commit(mysql) != 0)
 	{
         ploginfo(LERROR, "mydb::modifysql mysql_commit failed, err=%s", sql, geterror());
-		return FAILED;
+		return 0;
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-cbool mydb::modifysqlex(char **sqlarray, int size)
+int mydb::modifysqlex(char **sqlarray, int size)
 {
 	if (!sqlarray || size <= 0)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	for (int i = 0; i < size; i++)
@@ -94,27 +95,27 @@ cbool mydb::modifysqlex(char **sqlarray, int size)
 			{
 				ploginfo(LERROR, "mydb::modifysqlex mysql_rollback failed, err=%s", geterror());
 			}
-			return FAILED;
+			return 0;
 		}
 	}
 
 	if (mysql_commit(mysql) != 0)
 	{
-		return FAILED;
+		return 0;
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-cbool mydb::getrecordresult()
+int mydb::getrecordresult()
 {
 	result = mysql_store_result(mysql); 
-	return (result) ? SUCCESS : FAILED;
+	return (result) ? 1 : 0;
 }
 
-cbool mydb::nextrow()
+int mydb::nextrow()
 {
-	return SUCCESS;
+	return 1;
 }
 
 void mydb::releaserecordresult()
@@ -163,22 +164,22 @@ double mydb::getdouble(char *field)
 	return atoi(getstring(field));
 }
 
-cbool mydb::iseof()
+int mydb::iseof()
 {
 	MYSQL_ROW row = mysql_fetch_row(result);
 	return (row == NULL) ? 0 : 1;
 }
 
-cbool mydb::offrecordresult(int off)
+int mydb::offrecordresult(int off)
 {
 	mysql_data_seek(result, off);
-	return SUCCESS;
+	return 1;
 }
 
-cbool mydb::closedb()
+int mydb::closedb()
 {
 	mysql_close(mysql);
-	return SUCCESS;
+	return 1;
 }
 
 unsigned long mydb::getaffectrow()
@@ -186,7 +187,7 @@ unsigned long mydb::getaffectrow()
 	return mysql_affected_rows(mysql);
 }
 
-cbool mydb::isactive()
+int mydb::isactive()
 {
 	return (mysql_ping(mysql) == 0) ? 1 : 0;
 }

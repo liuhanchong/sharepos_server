@@ -1,13 +1,16 @@
 #ifndef HTABLE_H
 #define HTABLE_H
 
-#include "util.h"
 #include <pthread.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define hkey char*
 #define htitem void*
 
-typedef struct htnode
+struct htnode
 {
 	hkey key;/*保存key*/
 	int ksize;/*保存key size*/
@@ -15,24 +18,28 @@ typedef struct htnode
 	htitem item;
 	int isize;/*保存item size*/
 	struct htnode *next;
-} htnode;
+};
 
-typedef struct hashtable
+struct hashtable
 {
-	htnode **hashtable;/*hash列表*/
+	struct htnode **hashtable;/*hash列表*/
 	pthread_mutex_t tablemutex;/*互斥锁*/
 	pthread_mutex_t *tmslot;/*每个互斥锁槽加锁*/
 	int tablelen;/*散列表长度*/
-} hashtable; 
+};
 
-hashtable *createhashtable(int tlen);
-cbool destroyhashtable(hashtable *htable);
-cbool setitem(hashtable *htable, hkey key, htitem item);
-cbool delitem(hashtable *htable, hkey key);
-cbool setitembyid(hashtable *htable, int key, htitem item);
-cbool delitembyid(hashtable *htable, int key);
-htitem getitemvalue(hashtable *htable, hkey key);
-htitem getitemvaluebyid(hashtable *htable, int key);
-cbool excap(hashtable *htable, int tlen);/*hashtable扩容*/
+struct hashtable *createhashtable(int tlen);
+int destroyhashtable(struct hashtable *htable);
+int setitem(struct hashtable *htable, hkey key, htitem item);
+int delitem(struct hashtable *htable, hkey key);
+int setitembyid(struct hashtable *htable, int key, htitem item);
+int delitembyid(struct hashtable *htable, int key);
+htitem getitemvalue(struct hashtable *htable, hkey key);
+htitem getitemvaluebyid(struct hashtable *htable, int key);
+int excap(struct hashtable *htable, int tlen);/*hashtable扩容*/
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif

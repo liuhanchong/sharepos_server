@@ -2,29 +2,32 @@
 #define SELECT_H
 
 #include "evself.h"
-#include "reactor.h"
 #include <sys/select.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct fd_set se_event_t;
 
-cbool createse(struct reactor *reactor, void *data)
+int createse(struct reactor *reactor, void *data)
 {
-    reactor->selset.readfds = (void *)malloc(sizeof(se_event_t));
+    reactor->selset.readfds = (void *)cmalloc(sizeof(se_event_t));
     if (reactor->selset.readfds == NULL)
     {
-        return FAILED;
+        return 0;
     }
 
-    reactor->selset.writefds = (void *)malloc(sizeof(se_event_t));
+    reactor->selset.writefds = (void *)cmalloc(sizeof(se_event_t));
     if (reactor->selset.writefds == NULL)
     {
-        return FAILED;
+        return 0;
     }
 
-    reactor->selset.errorfds = (void *)malloc(sizeof(se_event_t));
+    reactor->selset.errorfds = (void *)cmalloc(sizeof(se_event_t));
     if (reactor->selset.errorfds == NULL)
     {
-        return FAILED;
+        return 0;
     }
     
     FD_ZERO(reactor->selset.readfds);
@@ -33,10 +36,10 @@ cbool createse(struct reactor *reactor, void *data)
     
     reactor->selset.maxfd = -1;
 
-    return SUCCESS;
+    return 1;
 }
 
-cbool addse(struct event *event, void *data)
+int addse(struct event *event, void *data)
 {
     se_event_t *fdset =
     (event->evtype & EV_READ) ? event->reactor->selset.readfds :
@@ -55,10 +58,10 @@ cbool addse(struct event *event, void *data)
         event->reactor->selset.maxfd = event->fd;
     }
     
-    return SUCCESS;
+    return 1;
 }
 
-cbool delse(struct event *event, void *data)
+int delse(struct event *event, void *data)
 {
     se_event_t *fdset =
     (event->evtype & EV_READ) ? event->reactor->selset.readfds :
@@ -68,10 +71,10 @@ cbool delse(struct event *event, void *data)
     
     FD_CLR(event->fd, fdset);
     
-    return SUCCESS;
+    return 1;
 }
 
-cbool dispatchse(struct reactor *reactor, struct timeval *tv, void *data)
+int dispatchse(struct reactor *reactor, struct timeval *tv, void *data)
 {
     se_event_t rset;
     se_event_t wset;
@@ -83,13 +86,13 @@ cbool dispatchse(struct reactor *reactor, struct timeval *tv, void *data)
     int actnum = select(reactor->selset.maxfd + 1, &rset, &wset, &eset, tv);
     if (actnum == -1)
     {
-        return FAILED;
+        return 0;
     }
     
     //没有活动的描述符
     if (actnum == 0)
     {
-        return SUCCESS;
+        return 1;
     }
     
     for (int i = 0; i <= reactor->selset.maxfd; ++i)
@@ -100,15 +103,15 @@ cbool dispatchse(struct reactor *reactor, struct timeval *tv, void *data)
         }
     }
     
-    return SUCCESS;
+    return 1;
 }
 
-cbool destroyse(struct reactor *reactor, void *data)
+int destroyse(struct reactor *reactor, void *data)
 {
-    free(reactor->selset.readfds);
-    free(reactor->selset.writefds);
-    free(reactor->selset.errorfds);
-    return SUCCESS;
+    cfree(reactor->selset.readfds);
+    cfree(reactor->selset.writefds);
+    cfree(reactor->selset.errorfds);
+    return 1;
 }
 
 void setevtopse(struct eventtop *evtop, int etindex)
@@ -122,5 +125,9 @@ void setevtopse(struct eventtop *evtop, int etindex)
     evtop[etindex].dispatch = dispatchse;
     evtop[etindex].destroy = destroyse;
 }
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif

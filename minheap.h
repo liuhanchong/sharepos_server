@@ -1,33 +1,39 @@
 #ifndef MINHEAP_H
 #define MINHEAP_H
 
-#include "util.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-typedef struct heapnode
+struct heapnode
 {
 	void *data;
 	int pos;/*从1开始*/
-} heapnode;
+};
 
 typedef int (*comparehenode)(struct heapnode *srchenode, struct heapnode *deshenode);
 
-typedef struct minheap
+struct minheap
 {
 	struct heapnode **head;
 	int size;/*保存整个数组大小*/
 	int cursize;/*当前保存的节点数*/
 	int addsize;/*每次自动增加的节点数*/
     comparehenode compare;/*传递比较函数*/
-} minheap;
+};
 
-minheap *createminheap(int size, comparehenode compare);
-cbool addhn(minheap *heap, void *data);
-cbool delhn(minheap *heap, void *data);
-void *getminvalue(minheap *heap);
-int getheapsize(minheap *heap);
-cbool heapempty(minheap *heap);
-cbool reverseminheap(minheap *heap, int size);
-void *getvaluebyindex(minheap *heap, int index);
-cbool destroyminheap(minheap *heap);
+struct minheap *createminheap(int size, comparehenode compare);
+int addhn(struct minheap *heap, void *data);
+int delhn(struct minheap *heap, void *data);
+void *getminvalue(struct minheap *heap);
+int getheapsize(struct minheap *heap);
+int heapempty(struct minheap *heap);
+int reverseminheap(struct minheap *heap, int size);
+void *getvaluebyindex(struct minheap *heap, int index);
+int destroyminheap(struct minheap *heap);
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif

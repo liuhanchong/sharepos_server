@@ -1,9 +1,12 @@
 #ifndef SOCKET_H
 #define SOCKET_H
 
-#include "util.h"
 #include <netdb.h>
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*将本机字节序转换为网络*/
 uint32_t htonlv(uint32_t host);
@@ -26,7 +29,7 @@ int iptonet(int domain, const char *ip, void *addr);
 const char *nettoip(int domain, const void *addr, char *desaddr, size_t len);
 
 /*设置addr*/
-cbool setsockaddrin(struct sockaddr_in *sockaddr, sa_family_t family, uint16_t port, const char *ip);
+int setsockaddrin(struct sockaddr_in *sockaddr, sa_family_t family, uint16_t port, const char *ip);
 
 /*获取主机名和服务名得IP信息*/
 int getipaddrinfo(const char *host, const char *server,
@@ -79,5 +82,9 @@ int connectsock(int fd, struct sockaddr *addr, socklen_t addrlen);
 
 /*关闭*/
 int closesock(int fd);
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,23 +1,23 @@
 #include "util.h"
 #include "pyinter.h"
 #include "event.h"
-#include "http.h"
+#include "log.h"
 #include <stdio.h>
 
-typedef struct spserver
+struct spserver
 {
     struct sysc sysc;
     struct slog *log;
     struct httpserver *http;
     struct eventtop etlist[SYSEVMODENUM]; /*按照优先级保存模型*/
-} spserver;
+};
 
 /*全局服务器配置*/
 struct spserver server;
 
 int main(int argc, const char *argv[])
 {
-    memset(&server, 0, sizeof(spserver));
+    memset(&server, 0, sizeof(struct spserver));
     
     //关闭服务器命令
     if (argc == 2 && (strcmp(argv[1], "stop") == 0))
@@ -56,32 +56,32 @@ int main(int argc, const char *argv[])
     }
 
     //获取系统配置
-    if (getsyscon("./server.ini", &server.sysc) == SUCCESS)
+    if (getsyscon("./server.ini", &server.sysc) == 1)
     {
         ploginfo(LDEBUG, "ip=%s port=%d", server.sysc.ip, server.sysc.port);
     }
     
-    //创建http服务器模块
-    server.http = createhttp(&server.sysc, server.etlist, (char *)server.sysc.ip, server.sysc.port);
-    if (server.http == NULL)
-    {
-        ploginfo(LERROR, "main->createhttp failed");
-        return 1;
-    }
-
-    //服务器主体逻辑
-    if (dispatchhttp(server.http) == FAILED)
-    {
-        ploginfo(LDEBUG, "main->dispatchevent failed");
-        return 1;
-    }
-    
-    //关闭http服务器
-    if (!destroyhttp(server.http))
-    {
-        ploginfo(LDEBUG, "main->destroyhttp failed");
-        return 1;
-    }
+//    //创建http服务器模块
+//    server.http = createhttp(&server.sysc, server.etlist, (char *)server.sysc.ip, server.sysc.port);
+//    if (server.http == NULL)
+//    {
+//        ploginfo(LERROR, "main->createhttp failed");
+//        return 1;
+//    }
+//
+//    //服务器主体逻辑
+//    if (dispatchhttp(server.http) == FAILED)
+//    {
+//        ploginfo(LDEBUG, "main->dispatchevent failed");
+//        return 1;
+//    }
+//    
+//    //关闭http服务器
+//    if (!destroyhttp(server.http))
+//    {
+//        ploginfo(LDEBUG, "main->destroyhttp failed");
+//        return 1;
+//    }
     
     ploginfo(LDEBUG, "main->destroyhttp succeess");
     

@@ -1,32 +1,38 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-typedef int cbool;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include "log.h"
 #include <sys/time.h>
 #include <sys/shm.h>
 
 /*函数返回值*/
-#define SUCCESS 1
-#define FAILED 0
-#define SUCCESSSTR "success"
-#define FAILEDSTR NULL
+#define sustr "ok"
+#define fastr "no"
 
+/*内存分配*/
+#define cmalloc malloc
+#define cfree free
+#define cnew(type) (type *)(cmalloc)(sizeof(type))
+#define cnews(type, n) (type *)(cmalloc)(sizeof(type) * (n))
+
+/*互斥锁操作*/
 #define lock(thmutex) (pthread_mutex_lock(&thmutex))
 #define unlock(thmutex) (pthread_mutex_unlock(&thmutex))
 
 int getmaxfilenumber();
 
-cbool setmaxfilenumber(int filenumber);
+int setmaxfilenumber(int filenumber);
 
-cbool setcorefilesize(int filesize);
+int setcorefilesize(int filesize);
 
 int getcorefilesize();
 
 int getpidfromfile();
 
-cbool setpidtofile();
+int setpidtofile();
 
 int getcpucorenum();
 
@@ -40,6 +46,10 @@ unsigned long strhash(char *str);
 
 void *createshare(key_t key, size_t size, int *shid);
 
-cbool destroyshare(int shareid, void *mem);
+int destroyshare(int shareid, void *mem);
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -3,6 +3,10 @@
 
 #include <fcntl.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*打开文件*/
 int openfile(const char *path, int flag, mode_t mode);
 
@@ -44,5 +48,9 @@ int setfilelen(int fileno, int len);
 
 /*清空文件*/
 int clearfile(int fileno);
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif

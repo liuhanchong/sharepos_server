@@ -1,25 +1,26 @@
 #include "htable.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 
-static void freekey(htnode *htnode)
+static void freekey(struct htnode *htnode)
 {
-	free(htnode->key);
+	cfree(htnode->key);
 }
 
-static cbool equalkey(hkey skey, hkey dkey)
+static int equalkey(hkey skey, hkey dkey)
 {
 	return (strcmp(skey, dkey) == 0) ? 1 : 0;
 }
 
-static cbool equalkeybyid(unsigned long skid, unsigned long dkid)
+static int equalkeybyid(unsigned long skid, unsigned long dkid)
 {
     return (skid == dkid) ? 1 : 0;
 }
 
-hashtable *createhashtable(int tlen)
+struct hashtable *createhashtable(int tlen)
 {
-	hashtable *newhtable = (struct hashtable *)malloc(sizeof(struct hashtable));
+	struct hashtable *newhtable = cnew(struct hashtable);
 	if (!newhtable)
 	{
 		return NULL;
@@ -36,8 +37,7 @@ hashtable *createhashtable(int tlen)
     newhtable->tablelen = tlen;
 
     //初始化每个卡槽锁
-    int psize = sizeof(pthread_mutex_t) * tlen;
-	newhtable->tmslot = (pthread_mutex_t *)malloc(psize);
+	newhtable->tmslot = cnews(pthread_mutex_t, tlen);
     if (!newhtable->tmslot)
     {
         return NULL;
@@ -53,7 +53,7 @@ hashtable *createhashtable(int tlen)
     pthread_mutexattr_destroy(&mutexattr);
 
 	int tsize = sizeof(struct htnode *) * tlen;
-	newhtable->hashtable = (struct htnode **)malloc(tsize);
+	newhtable->hashtable = (struct htnode **)cmalloc(tsize);
 	if (!newhtable->hashtable)
 	{
 		return NULL;
@@ -65,7 +65,7 @@ hashtable *createhashtable(int tlen)
 	return newhtable;
 }
 
-cbool destroyhashtable(hashtable *htable)
+int destroyhashtable(struct hashtable *htable)
 {
 	//释放表结点
 	struct htnode *htnode = NULL;
@@ -78,40 +78,40 @@ cbool destroyhashtable(hashtable *htable)
 			htnextnode = htnode->next;
             
 			freekey(htnode);
-			free(htnode);
+			cfree(htnode);
             
 			htnode = htnextnode;
 		}
 	}
-	free(htable->hashtable);
+	cfree(htable->hashtable);
     
     //释放所有卡槽
     for (int i = 0; i < htable->tablelen; i++)
     {
         pthread_mutex_destroy(&htable->tmslot[i]);
     }
-    free(htable->tmslot);
+    cfree(htable->tmslot);
 
 
 	pthread_mutex_destroy(&htable->tablemutex);
 
-	free(htable);
+	cfree(htable);
 
-	return SUCCESS;
+	return 1;
 }
 
-cbool setitem(hashtable *htable, hkey key, htitem item)
+int setitem(struct hashtable *htable, hkey key, htitem item)
 {
-	htnode *newhtnode = (struct htnode *)malloc(sizeof(struct htnode));
+	struct htnode *newhtnode = cnew(struct htnode);
 	if (!newhtnode)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	/*复制key值*/
     newhtnode->hkid = 0;
 	newhtnode->ksize = (int)strlen(key);
-	newhtnode->key = malloc(newhtnode->ksize + 1);
+	newhtnode->key = cmalloc(newhtnode->ksize + 1);
 	memcpy(newhtnode->key, key, newhtnode->ksize);
 	newhtnode->key[newhtnode->ksize] = '\0';
 
@@ -135,16 +135,16 @@ cbool setitem(hashtable *htable, hkey key, htitem item)
 		fnode->next = newhtnode;
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-cbool delitem(hashtable *htable, hkey key)
+int delitem(struct hashtable *htable, hkey key)
 {
 	int index = (int)strhash(key);
 	index = index % htable->tablelen;
 
-	int ret = FAILED;
-	htnode *prehtnode = NULL;
+	int ret = 0;
+	struct htnode *prehtnode = NULL;
 	struct htnode *fnode = htable->hashtable[index];
 	while (fnode)
 	{
@@ -160,9 +160,9 @@ cbool delitem(hashtable *htable, hkey key)
 			}
 
 			freekey(fnode);
-			free(fnode);
+			cfree(fnode);
 
-			ret = SUCCESS;
+			ret = 1;
 			break;
 		}
 
@@ -173,7 +173,7 @@ cbool delitem(hashtable *htable, hkey key)
 	return ret;
 }
 
-cbool setitembyid(hashtable *htable, int key, htitem item)
+int setitembyid(struct hashtable *htable, int key, htitem item)
 {
     char *skey = ntos(key);
     int ret = setitem(htable, skey, item);
@@ -182,7 +182,7 @@ cbool setitembyid(hashtable *htable, int key, htitem item)
     return ret;
 }
 
-cbool delitembyid(hashtable *htable, int key)
+int delitembyid(struct hashtable *htable, int key)
 {
     char *skey = ntos(key);
     int ret = delitem(htable, skey);
@@ -191,7 +191,7 @@ cbool delitembyid(hashtable *htable, int key)
     return ret;
 }
 
-htitem getitemvalue(hashtable *htable, hkey key)
+htitem getitemvalue(struct hashtable *htable, hkey key)
 {
 	int index = (int)strhash(key);
 	index = index % htable->tablelen;
@@ -211,7 +211,7 @@ htitem getitemvalue(hashtable *htable, hkey key)
 	return item;
 }
 
-htitem getitemvaluebyid(hashtable *htable, int key)
+htitem getitemvaluebyid(struct hashtable *htable, int key)
 {
     char *skey = ntos(key);
     htitem item = getitemvalue(htable, skey);
@@ -220,18 +220,18 @@ htitem getitemvaluebyid(hashtable *htable, int key)
     return item;
 }
 
-cbool excap(hashtable *htable, int tlen)
+int excap(struct hashtable *htable, int tlen)
 {
 	if (tlen <= htable->tablelen)
 	{
-		return SUCCESS;
+		return 1;
 	}
 
-	int tsize = sizeof(htnode *) * tlen;
-	htnode **echashtable = (struct htnode **)malloc(tsize);
+	int tsize = sizeof(struct htnode *) * tlen;
+	struct htnode **echashtable = (struct htnode **)cmalloc(tsize);
 	if (!echashtable)
 	{
-		return FAILED;
+		return 0;
 	}
 	memset(echashtable, 0, tsize);
 
@@ -244,10 +244,10 @@ cbool excap(hashtable *htable, int tlen)
 			echashtable[i] = htnode;
 		}
 	}
-	free(htable->hashtable);
+	cfree(htable->hashtable);
 
 	htable->hashtable = echashtable;
 	htable->tablelen = tlen;
 
-	return SUCCESS;
+	return 1;
 }

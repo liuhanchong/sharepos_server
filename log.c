@@ -1,5 +1,6 @@
-#include "io.h"
 #include "log.h"
+#include "io.h"
+#include "util.h"
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
@@ -11,7 +12,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static slog *serverlog = NULL;
+static struct slog *serverlog = NULL;
 
 /*根据类型标示获取类型字符串*/
 static char *getlogtype(slogtype type)
@@ -41,7 +42,7 @@ static char *getlogtype(slogtype type)
     }
 
     unsigned long slen = strlen(TYPE);
-    char *stype = (char *)malloc(slen + 1);
+    char *stype = (char *)cmalloc(slen + 1);
     memcpy(stype, TYPE, slen);
     stype[slen] = '\0';
     
@@ -50,13 +51,13 @@ static char *getlogtype(slogtype type)
 
 static void freelogtype(char *logtype)
 {
-    free(logtype);
+    cfree(logtype);
 }
 
 static char *timetostr(char *format)
 {
     int slen = 21;
-    char *stime = malloc(slen);
+    char *stime = cmalloc(slen);
     
 	time_t curtime = time(NULL);
 	struct tm *strutm = localtime(&curtime);
@@ -67,11 +68,11 @@ static char *timetostr(char *format)
 
 static void freetimestr(char *stime)
 {
-    free(stime);
+    cfree(stime);
 }
 
 /*生成文件名*/
-static cbool genfilename(slog *log, char *name, int size, slogtype type)
+static int genfilename(struct slog *log, char *name, int size, slogtype type)
 {
 	memset(name, 0, size);
 
@@ -84,20 +85,20 @@ static cbool genfilename(slog *log, char *name, int size, slogtype type)
     freelogtype(logtype);
     freetimestr(stime);
     
-    return SUCCESS;
+    return 1;
 }
 
 /*生成日志文件*/
-static int genlogfile(slog *log, slogtype type, int fnameindex)
+static int genlogfile(struct slog *log, slogtype type, int fnameindex)
 {
     /*生成文件名*/
-    char *name = (char *)malloc(LOGNAMELEN);
+    char *name = (char *)cmalloc(LOGNAMELEN);
     genfilename(log, name, LOGNAMELEN, type);
     
 	/*保存最新生成的文件名*/
     if (log->fnamearray[fnameindex])
     {
-        free(log->fnamearray[fnameindex]);
+        cfree(log->fnamearray[fnameindex]);
         closefile(log->fdarray[fnameindex]);
     }
     log->fnamearray[fnameindex] = name;
@@ -127,7 +128,7 @@ static int combinelog(slogtype type, char *log, int logsize,
 }
 
 /*判断文件是否删除*/
-static int isdelfile(slog *log, slogtype type)
+static int isdelfile(struct slog *log, slogtype type)
 {
     int fnameindex = type;
     return (!existfile(log->fnamearray[fnameindex]));
@@ -142,7 +143,7 @@ static void gendir(const char *logdir)
 }
 
 /*生成删除的日志文件*/
-static cbool gendelfile(slog *log, slogtype type)
+static int gendelfile(struct slog *log, slogtype type)
 {
     if (isdelfile(log, type))
     {
@@ -155,17 +156,17 @@ static cbool gendelfile(slog *log, slogtype type)
         int tempfileno = -1;
         if ((tempfileno = genlogfile(log, type, fdindex)) == -1)
         {
-            return FAILED;
+            return 0;
         }
         
         //成功后才将最新的文件描述符保存
         log->fdarray[fdindex] = tempfileno;
     }
     
-    return SUCCESS;
+    return 1;
 }
 
-static cbool writelog(slog *slog, slogtype type, const char *log, int size)
+static int writelog(struct slog *slog, slogtype type, const char *log, int size)
 {
     /*如果日志文件被删除 生成新的日志文件*/
     gendelfile(slog, type);
@@ -176,7 +177,7 @@ static cbool writelog(slog *slog, slogtype type, const char *log, int size)
     
     if (writefile(fileno, log, size) != size)
     {
-        return FAILED;
+        return 0;
     }
     
     fsync(fileno);
@@ -187,33 +188,33 @@ static cbool writelog(slog *slog, slogtype type, const char *log, int size)
         int tempfileno = -1;
         if ((tempfileno = genlogfile(slog, type, fdindex)) == -1)
         {
-            return FAILED;
+            return 0;
         }
         
         //成功后才将最新的文件描述符保存
         slog->fdarray[fdindex] = tempfileno;
     }
     
-    return SUCCESS;
+    return 1;
 }
 
 /*初始化log*/
-slog *createlog()
+struct slog *createlog()
 {
-    struct slog *log = (struct slog *)malloc(sizeof(slog));
+    struct slog *log = cnew(struct slog);
     if (!log)
     {
         return NULL;
     }
     
-    memset(log, 0, sizeof(slog));
+    memset(log, 0, sizeof(struct slog));
     
     //保存全局的server日志
     serverlog = log;
     
     char *logdir = "slog";/*给定日志文件夹名*/
     unsigned long ldlen = strlen(logdir);
-    log->logdir = malloc(ldlen + 1);
+    log->logdir = cmalloc(ldlen + 1);
     if (!log->logdir)
     {
         return NULL;
@@ -249,27 +250,27 @@ slog *createlog()
 }
 
 /*释放log*/
-cbool destroylog(slog *log)
+int destroylog(struct slog *log)
 {
 	log->run = 0;
 
 	for (int i = 0; i < LOGTYPENUM; i++)
 	{
-        free(log->fnamearray[i]);
+        cfree(log->fnamearray[i]);
         if (closefile(log->fdarray[i]) != 0)
         {
-            return FAILED;
+            return 0;
         }
 	}
     
-    free(log->logdir);
+    cfree(log->logdir);
     
 	if (pthread_mutex_destroy(&log->logmutex) != 0)
 	{
-		return FAILED;
+		return 0;
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
 /*打印日志信息*/
@@ -290,7 +291,7 @@ void ploginfo(slogtype logtype, const char *format, ...)
     loglen = combinelog(logtype, log, LOGSIZE, arg_list, format);
     va_end(arg_list);
     
-    if (writelog(serverlog, logtype, log, loglen) != SUCCESS)
+    if (writelog(serverlog, logtype, log, loglen) != 1)
     {
         printf("写入%d日志信息失败\n", logtype);
     }
@@ -318,7 +319,7 @@ void ploginfoerrno(const char *fun, errno_t errorno)
 	int size = snprintf(log, LOGSIZE, "error_errno(%s):%s->%s\r\n", stime, fun, perror);
     freetimestr(stime);
 
-	if (writelog(serverlog, logtype, log, size) != SUCCESS)
+	if (writelog(serverlog, logtype, log, size) != 1)
     {
         printf("写入%d日志信息失败\n", logtype);
     }

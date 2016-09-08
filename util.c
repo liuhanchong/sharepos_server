@@ -18,7 +18,7 @@ int getmaxfilenumber()
 	return 0;
 }
 
-cbool setmaxfilenumber(int filenumber)
+int setmaxfilenumber(int filenumber)
 {
 	struct rlimit rlt;
 	if (getrlimit(RLIMIT_NOFILE, &rlt) == 0)
@@ -26,14 +26,14 @@ cbool setmaxfilenumber(int filenumber)
 		rlt.rlim_cur = (filenumber >= rlt.rlim_max) ? rlt.rlim_max : filenumber;
 		if (setrlimit(RLIMIT_NOFILE, &rlt) == 0)
 		{
-			return SUCCESS;
+			return 1;
 		}
 	}
 
-	return FAILED;
+	return 0;
 }
 
-cbool setcorefilesize(int filesize)
+int setcorefilesize(int filesize)
 {
 	struct rlimit rlt;
 	if (getrlimit(RLIMIT_CORE, &rlt) == 0)
@@ -41,11 +41,11 @@ cbool setcorefilesize(int filesize)
 		rlt.rlim_cur = (filesize >= rlt.rlim_max) ? rlt.rlim_max : filesize;
 		if (setrlimit(RLIMIT_CORE, &rlt) == 0)
 		{
-			return SUCCESS;
+			return 1;
 		}
 	}
 
-	return FAILED;
+	return 0;
 }
 
 int getcorefilesize()
@@ -79,7 +79,7 @@ int getpidfromfile()
 	return pid;
 }
 
-cbool setpidtofile()
+int setpidtofile()
 {
 	int pid = getpid();
 	int fileno = -1;
@@ -96,7 +96,7 @@ cbool setpidtofile()
 		{
 			printf("%s\n", "write pid to file failed!");
 			closefile(fileno);
-			return FAILED;
+			return 0;
 		}
 
 		closefile(fileno);
@@ -104,7 +104,7 @@ cbool setpidtofile()
     
     printf("the process id is %d!\n", pid);
 
-	return SUCCESS;
+	return 1;
 }
 
 int getcpucorenum()
@@ -138,7 +138,7 @@ char *ntos(int num)
         len++;
     }
     
-    char *snum = (char *)malloc(len + 1);//+1保证负数
+    char *snum = (char *)cmalloc(len + 1);//+1保证负数
     sprintf(snum, "%d", num);
     
     return snum;
@@ -146,7 +146,7 @@ char *ntos(int num)
 
 void freebyntos(char *str)
 {
-    free(str);
+    cfree(str);
 }
 
 unsigned long strhash(char *str)
@@ -181,12 +181,12 @@ void *createshare(key_t key, size_t size, int *shid)
     return (mem == (void *)-1) ? NULL : mem;
 }
 
-cbool destroyshare(int shareid, void *mem)
+int destroyshare(int shareid, void *mem)
 {
     if (shmdt(mem) != 0 || shmctl(shareid, IPC_RMID, 0) != 0)
     {
-        return FAILED;
+        return 0;
     }
     
-    return SUCCESS;
+    return 1;
 }

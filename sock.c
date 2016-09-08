@@ -49,11 +49,11 @@ const char *nettoip(int domain, const void *addr, char *desaddr, size_t len)
 	return inet_ntop(domain, addr, desaddr, (socklen_t)len);
 }
 
-cbool setsockaddrin(struct sockaddr_in *sockaddr, sa_family_t family, uint16_t port, const char *ip)
+int setsockaddrin(struct sockaddr_in *sockaddr, sa_family_t family, uint16_t port, const char *ip)
 {
 	sockaddr->sin_family = family;
 	sockaddr->sin_port = htons(port);
-    return (iptonet(family, ip, &sockaddr->sin_addr) <= 0) ? FAILED : SUCCESS;
+    return (iptonet(family, ip, &sockaddr->sin_addr) <= 0) ? 0 : 1;
 }
 
 int getipaddrinfo(const char *host, const char *server,

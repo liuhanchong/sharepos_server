@@ -1,8 +1,9 @@
 #include "list.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 
-static cbool delete(list *list, listnode *node)
+static int delete(struct list *list, struct listnode *node)
 {
 	if (node->next != NULL && node->pre != NULL)
 	{
@@ -21,18 +22,18 @@ static cbool delete(list *list, listnode *node)
 			list->head = NULL;
 		}
 
-		free(node);
+		cfree(node);
 		node = NULL;
 
-		return SUCCESS;
+		return 1;
 	}
 
-	return FAILED;
+	return 0;
 }
 
-list *createlist(list_t maxlen, int openprio, listsort sortfun)
+struct list *createlist(list_t maxlen, int openprio, listsort sortfun)
 {
-    list *list = (struct list *)malloc(sizeof(struct list));
+    struct list *list = cnew(struct list);
     if (!list)
     {
         return NULL;
@@ -56,52 +57,52 @@ list *createlist(list_t maxlen, int openprio, listsort sortfun)
 	return NULL;
 }
 
-cbool destroylist(list *list)
+int destroylist(struct list *list)
 {
-	if (clearlist(list) == FAILED)
+	if (clearlist(list) == 0)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	if (pthread_mutex_destroy(&list->thmutex) != 0)
 	{
-		return FAILED;
+		return 0;
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-list_t getcurlistlen(list *list)
+list_t getcurlistlen(struct list *list)
 {
 	return list->curlistlen;
 }
 
-list_t getmaxlistlen(list *list)
+list_t getmaxlistlen(struct list *list)
 {
 	return list->maxlistlen;
 }
 
-void setmaxlistlen(list *list, list_t maxlen)
+void setmaxlistlen(struct list *list, list_t maxlen)
 {
 	list->maxlistlen = maxlen;
 }
 
-cbool empty(list *list)
+int empty(struct list *list)
 {
 	return ((list->curlistlen == 0) ? 1 : 0);
 }
 
-cbool push(list *list, void *data, int prio)
+int push(struct list *list, void *data, int prio)
 {
 	if (full(list))
 	{
-		return FAILED;
+		return 0;
 	}
 
-	listnode *node = (listnode *)malloc(sizeof(listnode));
+	struct listnode *node = cnew(struct listnode);
 	if (!node)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	/*填充结构体*/
@@ -119,11 +120,11 @@ cbool push(list *list, void *data, int prio)
 
 		list->curlistlen++;
 
-		return SUCCESS;
+		return 1;
 	}
 
 	//找到头指针
-	listnode *head = list->head;
+	struct listnode *head = list->head;
 
 	//优先级队列
 	if (list->openprio == 1 || list->openprio == 2)
@@ -147,7 +148,7 @@ cbool push(list *list, void *data, int prio)
 
 				list->curlistlen++;
 
-				return SUCCESS;
+				return 1;
 			}
 
 			//遍历到最后一个元素
@@ -167,7 +168,7 @@ cbool push(list *list, void *data, int prio)
 
 		list->curlistlen++;
 
-		return SUCCESS;
+		return 1;
 	}
 	//非优先级队列
 	else if (list->openprio == 0)
@@ -180,20 +181,20 @@ cbool push(list *list, void *data, int prio)
 		list->curlistlen++;
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-listnode *gethead(list *list)
+struct listnode *gethead(struct list *list)
 {
 	return list->head;
 }
 
-cbool full(list *list)
+int full(struct list *list)
 {
 	return (((list->curlistlen < list->maxlistlen) || list->maxlistlen <= 0) ? 0 : 1);
 }
 
-cbool clearlist(list *list)
+int clearlist(struct list *list)
 {
 	while (!empty(list))
 	{
@@ -202,10 +203,10 @@ cbool clearlist(list *list)
     
     list->curlistlen = 0;
 
-	return SUCCESS;
+	return 1;
 }
 
-cbool delnode(list *list, listnode *node)
+int delnode(struct list *list, struct listnode *node)
 {
 	return delete(list, node);
 }

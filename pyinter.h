@@ -1,29 +1,30 @@
-#ifndef INFACE_H
-#define INFACE_H
+#ifndef PYINTER_H
+#define PYINTER_H
 
-#include "util.h"
 #include <python2.7/Python.h>
-
-typedef PyObject pyobject;
-
-typedef struct sysc
-{
-    unsigned char ip[20];
-    int port;
-    
-    unsigned char host[20];
-    unsigned char user[20];
-    unsigned char paw[20];
-    unsigned char db[20];
-    int dbport;
-} sysc;
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+    
+typedef PyObject pyobject;
+    
+struct sysc
+{
+    /*tcp*/
+    unsigned char ip[20];
+    int port;
+    
+    /*db*/
+    unsigned char host[20];
+    unsigned char user[20];
+    unsigned char paw[20];
+    unsigned char db[20];
+    int dbport;
+};
 
-cbool getsyscon(const char *filename, struct sysc *sysc);
+int getsyscon(const char *filename, struct sysc *sysc);
  
 #ifdef __cplusplus
 }

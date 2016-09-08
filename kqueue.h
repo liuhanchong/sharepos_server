@@ -2,35 +2,38 @@
 #define KQUEUE_H
 
 #include "evself.h"
-#include "reactor.h"
 #include <sys/event.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct kevent kq_event_t;
 
-static cbool addkevent(int kerevid, int fd, int filter, int flags)
+static int addkevent(int kerevid, int fd, int filter, int flags)
 {
     //设置事件
     kq_event_t addkevent;
     EV_SET(&addkevent, fd, filter, flags, 0, 0, NULL);
     
     //添加事件
-    return (kevent(kerevid, &addkevent, 1, NULL, 0, NULL) == -1) ? FAILED : SUCCESS;
+    return (kevent(kerevid, &addkevent, 1, NULL, 0, NULL) == -1) ? 0 : 1;
 }
 
-cbool createkq(struct reactor *reactor, void *data)
+int createkq(struct reactor *reactor, void *data)
 {
     reactor->multiplex.kerevid = kqueue();
     if (reactor->multiplex.kerevid == -1)
     {
-        return FAILED;
+        return 0;
     }
     
     reactor->multiplex.evelistlen = *((int *)data);
-    reactor->multiplex.evelist = (void *)malloc(sizeof(kq_event_t) * reactor->multiplex.evelistlen);
-    return (reactor->multiplex.evelist == NULL) ? FAILED : SUCCESS;
+    reactor->multiplex.evelist = (void *)cmalloc(sizeof(kq_event_t) * reactor->multiplex.evelistlen);
+    return (reactor->multiplex.evelist == NULL) ? 0 : 1;
 }
 
-cbool addkq(struct event *event, void *data)
+int addkq(struct event *event, void *data)
 {
     //设置事件标记
     int filter = (event->evtype & EV_READ) ? EVFILT_READ : EVFILT_WRITE;
@@ -40,7 +43,7 @@ cbool addkq(struct event *event, void *data)
     return addkevent(event->reactor->multiplex.kerevid, event->fd, filter, flags);
 }
 
-cbool delkq(struct event *event, void *data)
+int delkq(struct event *event, void *data)
 {
     //设置事件标记
     int filter = (event->evtype & EV_READ) ? EVFILT_READ : EVFILT_WRITE;
@@ -49,13 +52,13 @@ cbool delkq(struct event *event, void *data)
     return addkevent(event->reactor->multiplex.kerevid, event->fd, filter, flags);
 }
 
-cbool dispatchkq(struct reactor *reactor, struct timeval *tv, void *data)
+int dispatchkq(struct reactor *reactor, struct timeval *tv, void *data)
 {
     struct timespec ts = {.tv_sec = (tv->tv_sec), .tv_nsec = (tv->tv_usec * 1000)};
     int actnum = kevent(reactor->multiplex.kerevid, NULL, 0, reactor->multiplex.evelist, reactor->multiplex.evelistlen, &ts);
     if (actnum == -1)
     {
-        return FAILED;
+        return 0;
     }
     
     //获取活动的用户事件
@@ -65,13 +68,13 @@ cbool dispatchkq(struct reactor *reactor, struct timeval *tv, void *data)
         addactevent((int)evelist[i].ident, reactor);
     }
     
-    return SUCCESS;
+    return 1;
 }
 
-cbool destroykq(struct reactor *reactor, void *data)
+int destroykq(struct reactor *reactor, void *data)
 {
-    free(reactor->multiplex.evelist);
-    return (close(reactor->multiplex.kerevid) == -1) ? FAILED : SUCCESS;
+    cfree(reactor->multiplex.evelist);
+    return (close(reactor->multiplex.kerevid) == -1) ? 0 : 1;
 }
 
 void setevtopkq(struct eventtop *evtop, int etindex)
@@ -85,5 +88,9 @@ void setevtopkq(struct eventtop *evtop, int etindex)
     evtop[etindex].dispatch = dispatchkq;
     evtop[etindex].destroy = destroykq;
 }
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,9 +1,12 @@
 #ifndef EPOLL_H
 #define EPOLL_H
 
-#include "evbase.h"
-#include "reactor.h"
+#include "evself.h"
 #include <sys/epoll.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct epoll_event ep_event_t;
 
@@ -32,7 +35,7 @@ cbool createep(struct reactor *reactor, void *data)
     }
     
     reactor->multiplex.evelistlen = *((int *)data);
-    reactor->multiplex.evelist = (void *)malloc(sizeof(ep_event_t) * reactor->multiplex.evelistlen);
+    reactor->multiplex.evelist = (void *)cmalloc(sizeof(ep_event_t) * reactor->multiplex.evelistlen);
     return (reactor->multiplex.evelist == NULL) ? FAILED : SUCCESS;
 }
 
@@ -91,5 +94,9 @@ void setevtopep(struct eventtop *evtop, int etindex)
     evtop[etindex].dispatch = dispatchep;
     evtop[etindex].destroy = destroyep;
 }
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif

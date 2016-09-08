@@ -1,15 +1,16 @@
 #include "minheap.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 
-static cbool moveup(minheap *heap, heapnode *node)
+static int moveup(struct minheap *heap, struct heapnode *node)
 {
 	if (node->pos == 1)
 	{
-		return SUCCESS;
+		return 1;
 	}
 
-	heapnode *parnode = heap->head[(node->pos / 2) - 1];
+	struct heapnode *parnode = heap->head[(node->pos / 2) - 1];
 	if (heap->compare(node, parnode) == 1)
 	{
 		void *data = node->data;
@@ -19,20 +20,20 @@ static cbool moveup(minheap *heap, heapnode *node)
 		return moveup(heap, parnode);
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-static cbool movedown(minheap *heap, heapnode *node)
+static int movedown(struct minheap *heap, struct heapnode *node)
 {
 	if (node->pos > heap->cursize ||
 		node->pos * 2 > heap->cursize || 
 		node->pos * 2 + 1 > heap->cursize)
 	{
-		return SUCCESS;
+		return 1;
 	}
 
     //比较左右结点
-	heapnode *comnode = (heap->compare(heap->head[(node->pos * 2) - 1],
+	struct heapnode *comnode = (heap->compare(heap->head[(node->pos * 2) - 1],
 						 heap->head[node->pos * 2]) != -1) ?
 	 			heap->head[(node->pos * 2) - 1] : heap->head[node->pos * 2];
     
@@ -46,22 +47,22 @@ static cbool movedown(minheap *heap, heapnode *node)
 		return movedown(heap, comnode);
 	}
 
-	return SUCCESS;
+	return 1;
 }
 
-minheap *createminheap(int size, comparehenode compare)
+struct minheap *createminheap(int size, comparehenode compare)
 {
-	struct minheap *heap = (struct minheap *)malloc(sizeof(struct minheap));
+	struct minheap *heap = cnew(struct minheap);
 	if (!heap)
 	{
 		return NULL;
 	}
 
     int hsize = sizeof(struct heapnode *) * size;
-	heap->head = (struct heapnode **)malloc(hsize);
+	heap->head = (struct heapnode **)cmalloc(hsize);
 	if (!heap->head)
 	{
-		free(heap);
+		cfree(heap);
 		return NULL;
 	}
     memset(heap->head, 0, hsize);
@@ -74,20 +75,20 @@ minheap *createminheap(int size, comparehenode compare)
 	return heap;
 }
 
-cbool addhn(minheap *heap, void *data)
+int addhn(struct minheap *heap, void *data)
 {
 	if (heap->size < heap->cursize + 1)
 	{
-		if (reverseminheap(heap, heap->size + heap->addsize) == FAILED)
+		if (reverseminheap(heap, heap->size + heap->addsize) == 0)
 		{
-			return FAILED;
+			return 0;
 		}
 	}
 
-	struct heapnode *henode = (struct heapnode *)malloc(sizeof(struct heapnode));
+	struct heapnode *henode = cnew(struct heapnode);
 	if (!henode)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	//将节点插入到完全二叉树末尾
@@ -99,7 +100,7 @@ cbool addhn(minheap *heap, void *data)
 	return moveup(heap, henode);
 }
 
-cbool delhn(minheap *heap, void *data)
+int delhn(struct minheap *heap, void *data)
 {
 	for (int i = 0; i < heap->cursize; i++)
 	{
@@ -107,68 +108,68 @@ cbool delhn(minheap *heap, void *data)
 		{
 			heap->head[i]->data = heap->head[--heap->cursize]->data;
 			int ret = movedown(heap, heap->head[i]);
-			free(heap->head[heap->cursize]);
+			cfree(heap->head[heap->cursize]);
 			return ret;
 		}
 	}
 
-	return FAILED;
+	return 0;
 }
 
-void *getminvalue(minheap *heap)
+void *getminvalue(struct minheap *heap)
 {
 	return (heap->head[0]) ? (heap->head[0]->data) : NULL;
 }
 
-int getheapsize(minheap *heap)
+int getheapsize(struct minheap *heap)
 {
 	return heap->cursize;
 }
 
-cbool heapempty(minheap *heap)
+int heapempty(struct minheap *heap)
 {
 	return (heap->cursize == 0) ? 1 : 0;
 }
 
-cbool reverseminheap(minheap *heap, int size)
+int reverseminheap(struct minheap *heap, int size)
 {
 	if (size <= heap->size)
 	{
-		return FAILED;
+		return 0;
 	}
 
-	struct heapnode **head = (struct heapnode **)malloc(sizeof(struct heapnode *) * size);
+	struct heapnode **head = (struct heapnode **)cmalloc(sizeof(struct heapnode *) * size);
 	if (!heap->head)
 	{
-		return FAILED;
+		return 0;
 	}
 
 	for (int i = 0; i < heap->cursize; i++)
 	{
 		head[i] = heap->head[i];
 	}
-	free(heap->head);
+	cfree(heap->head);
 
 	heap->head = head;
 	heap->size = size;
 
-	return SUCCESS;
+	return 1;
 }
 
-void *getvaluebyindex(minheap *heap, int index)
+void *getvaluebyindex(struct minheap *heap, int index)
 {
 	return heap->head[index]->data;
 }
 
-cbool destroyminheap(minheap *heap)
+int destroyminheap(struct minheap *heap)
 {
 	for (int i = 0; i < heap->cursize; i++)
 	{
-		free(heap->head[i]);
+		cfree(heap->head[i]);
 	}
 
-	free(heap->head);
-	free(heap);
+	cfree(heap->head);
+	cfree(heap);
 
-	return SUCCESS;
+	return 1;
 }
