@@ -1,7 +1,8 @@
 #include "util.h"
+#include "log.h"
 #include "pyinter.h"
 #include "event.h"
-#include "log.h"
+#include "http.h"
 #include <stdio.h>
 
 struct spserver
@@ -61,27 +62,27 @@ int main(int argc, const char *argv[])
         ploginfo(LDEBUG, "ip=%s port=%d", server.sysc.ip, server.sysc.port);
     }
     
-//    //创建http服务器模块
-//    server.http = createhttp(&server.sysc, server.etlist, (char *)server.sysc.ip, server.sysc.port);
-//    if (server.http == NULL)
-//    {
-//        ploginfo(LERROR, "main->createhttp failed");
-//        return 1;
-//    }
-//
-//    //服务器主体逻辑
-//    if (dispatchhttp(server.http) == FAILED)
-//    {
-//        ploginfo(LDEBUG, "main->dispatchevent failed");
-//        return 1;
-//    }
-//    
-//    //关闭http服务器
-//    if (!destroyhttp(server.http))
-//    {
-//        ploginfo(LDEBUG, "main->destroyhttp failed");
-//        return 1;
-//    }
+    //创建http服务器模块
+    server.http = createhttp(server.etlist, (char *)server.sysc.ip, server.sysc.port);
+    if (server.http == NULL)
+    {
+        ploginfo(LERROR, "main->createhttp failed");
+        return 1;
+    }
+
+    //服务器主体逻辑
+    if (dispatchhttp(server.http) == 0)
+    {
+        ploginfo(LDEBUG, "main->dispatchevent failed");
+        return 1;
+    }
+    
+    //关闭http服务器
+    if (!destroyhttp(server.http))
+    {
+        ploginfo(LDEBUG, "main->destroyhttp failed");
+        return 1;
+    }
     
     ploginfo(LDEBUG, "main->destroyhttp succeess");
     

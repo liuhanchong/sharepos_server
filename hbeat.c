@@ -45,13 +45,9 @@ static void *handlefd(void *data)
                 struct event *event = getevent(hbnode->fd, hebeat->reactor);
                 if (event)
                 {
-                    if (delevent(event) == 0)
+                    if (closeevent(event) == 0)
                     {
-                        ploginfo(LERROR, "handlefd->delevent failed");
-                    }
-                    else
-                    {
-                        ploginfo(LOTHER, "handlefd->delevent success");
+                        ploginfo(LERROR, "handlefd->closeevent failed");
                     }
                 }
                 

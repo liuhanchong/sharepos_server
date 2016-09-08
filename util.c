@@ -1,11 +1,11 @@
 #include "util.h"
 #include "io.h"
-#include <sys/resource.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/resource.h>
 
 int getmaxfilenumber()
 {

@@ -198,6 +198,56 @@ static int looptimer(struct reactor *reactor)
     return 1;
 }
 
+/*删除事件*/
+static int delevent(struct event *uevent)
+{
+    assert((uevent != NULL));
+    
+    int ret = 0;
+    
+    if (uevent->evtype & EV_SIGNAL)
+    {
+        //设置回以前的信号处理
+        if (sigaction(uevent->fd, uevent->oldsiga, NULL) == -1)
+        {
+            ploginfo(LERROR, "%s->%s sigid %d failed", "freeevent", "sigaction", uevent->fd);
+        }
+        
+        cfree(uevent->oldsiga);
+        uevent->oldsiga = NULL;
+        
+        forlist(uevent->reactor->usigevelist.usignalevelist)
+        {
+            if (headlistnode->data == uevent)
+            {
+                ret = delnode(uevent->reactor->usigevelist.usignalevelist, headlistnode);
+                break;
+            }
+        }
+    }
+    else if (uevent->evtype & EV_TIMER)
+    {
+        ret = delhn(uevent->reactor->utimersevelist, uevent);
+    }
+    else if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
+    {
+        //非持久事件自动从系统中删除
+        if (uevent->reactor->selmode.selevtop->del(uevent, NULL) == 0)
+        {
+            ploginfo(LERROR, "%s->%s success clientsock=%d", "delevent", "del", uevent->fd);
+        }
+        
+        if (delheartbeat(uevent->reactor->hbeat, uevent->fd) == 1)
+        {
+            ploginfo(LDEBUG, "%s->%s success clientsock=%d", "delevent", "delheartbeat", uevent->fd);
+        }
+        
+        ret = delitembyid(uevent->reactor->uevelist, uevent->fd);
+    }
+    
+    return ret;
+}
+
 static void handle(struct reactor *reactor)
 {
     //处理事件
@@ -225,24 +275,7 @@ static void handle(struct reactor *reactor)
         //调用接口函数
         if (uevent->call(uevent, uevent->arg) == fastr)
         {
-            //调用失败
-            if (uevent->evtype & EV_PERSIST)
-            {
-                //从用户中删除
-                if (delevent(uevent) == 0)
-                {
-                    ploginfo(LERROR, "handle->call->delevent failed");
-                }
-                
-                if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
-                {
-                    close(uevent->fd);
-                }
-                
-                frevent(uevent);
-                
-                continue;
-            }
+            ploginfo(LERROR, "handle->call failed sock=%d", uevent->fd);
         }
         
         //定时器事件
@@ -424,7 +457,8 @@ struct event *setevent(struct reactor *reactor, int fd, int evtype, callback cal
     newevent->call = call;
     newevent->arg = arg;
     newevent->reactor = reactor;
-    newevent->buf = NULL;
+    newevent->rbuf = NULL;
+    newevent->wbuf = NULL;
     
     return newevent;
 }
@@ -543,56 +577,6 @@ int addtimer(struct event *uevent, struct timeval *timer)
     return 0;
 }
 
-/*删除事件*/
-int delevent(struct event *uevent)
-{
-    assert((uevent != NULL));
-    
-    int ret = 0;
-    
-    if (uevent->evtype & EV_SIGNAL)
-    {
-        //设置回以前的信号处理
-        if (sigaction(uevent->fd, uevent->oldsiga, NULL) == -1)
-        {
-            ploginfo(LERROR, "%s->%s sigid %d failed", "freeevent", "sigaction", uevent->fd);
-        }
-        
-        cfree(uevent->oldsiga);
-        uevent->oldsiga = NULL;
-        
-        forlist(uevent->reactor->usigevelist.usignalevelist)
-        {
-            if (headlistnode->data == uevent)
-            {
-                ret = delnode(uevent->reactor->usigevelist.usignalevelist, headlistnode);
-                break;
-            }
-        }
-    }
-    else if (uevent->evtype & EV_TIMER)
-    {
-        ret = delhn(uevent->reactor->utimersevelist, uevent);
-    }
-    else if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
-    {
-        //非持久事件自动从系统中删除
-        if (uevent->reactor->selmode.selevtop->del(uevent, NULL) == 0)
-        {
-            ploginfo(LERROR, "%s->%s success clientsock=%d", "delevent", "del", uevent->fd);
-        }
-        
-        if (delheartbeat(uevent->reactor->hbeat, uevent->fd) == 1)
-        {
-            ploginfo(LDEBUG, "%s->%s success clientsock=%d", "delevent", "delheartbeat", uevent->fd);
-        }
-
-        ret = delitembyid(uevent->reactor->uevelist, uevent->fd);
-    }
-    
-    return ret;
-}
-
 /*添加活动事件*/
 int addactevent(int fd, struct reactor *reactor)
 {
@@ -603,6 +587,31 @@ int addactevent(int fd, struct reactor *reactor)
     }
     
     return 0;
+}
+
+/*关闭事件*/
+int closeevent(struct event *uevent)
+{
+    //删除事件
+    if (delevent(uevent) == 0)
+    {
+        ploginfo(LERROR, "closeevent->delevent failed");
+    }
+    
+    if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
+    {
+        close(uevent->fd);
+    }
+    
+    if (uevent->evtype & EV_WRITE)
+    {
+        //防止写的数据没有被释放
+        uevent->call(uevent, uevent->arg);
+    }
+    
+    frevent(uevent);
+    
+    return 1;
 }
 
 /*分发消息*/
