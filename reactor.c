@@ -1,4 +1,4 @@
-#include "reactor.h"
+#include "evself.h"
 #include "util.h"
 #include "log.h"
 
@@ -14,7 +14,7 @@ static void *stopdispatch(void *event, void *arg)
     return NULL;
 }
 
-static struct event *cpevent(struct event *sevent)
+static struct event *eventcopy(struct event *sevent)
 {
     struct event *devent = cnew(struct event);
     if (!devent)
@@ -27,7 +27,7 @@ static struct event *cpevent(struct event *sevent)
     return devent;
 }
 
-static void frevent(struct event *event)
+static void eventfree(struct event *event)
 {
     cfree(event);
 }
@@ -234,82 +234,21 @@ static int delevent(struct event *uevent)
         //非持久事件自动从系统中删除
         if (uevent->reactor->selmode.selevtop->del(uevent, NULL) == 0)
         {
-            ploginfo(LERROR, "%s->%s success clientsock=%d", "delevent", "del", uevent->fd);
+            ploginfo(LERROR, "%s->%s failed clientsock=%d errno=%d", "delevent", "del", uevent->fd, errno);
         }
         
-        if (delheartbeat(uevent->reactor->hbeat, uevent->fd) == 1)
+        if (uevent->hbman == 1)
         {
-            ploginfo(LDEBUG, "%s->%s success clientsock=%d", "delevent", "delheartbeat", uevent->fd);
+            if (delheartbeat(uevent->reactor->hbeat, uevent->fd) == 0)
+            {
+                ploginfo(LERROR, "%s->%s failed clientsock=%d", "delevent", "delheartbeat", uevent->fd);
+            }
         }
         
         ret = delitembyid(uevent->reactor->uevelist, uevent->fd);
     }
     
     return ret;
-}
-
-static void handle(struct reactor *reactor)
-{
-    //处理事件
-    forlist(reactor->uactevelist)
-    {
-        struct event *uevent = (struct event *)headlistnode->data;
-        
-        if (!(uevent->evtype & EV_PERSIST))
-        {
-            struct event *bkevent = cpevent(uevent);
-            
-            //从用户中删除
-            if (delevent(uevent) == 0)
-            {
-                ploginfo(LERROR, "handle->delevent failed");
-            }
-            
-            frevent(uevent);
-            
-            uevent = bkevent;
-            
-            ploginfo(LDEBUG, "del event success, this event not is EV_PERSIST event");
-        }
-        
-        //调用接口函数
-        if (uevent->call(uevent, uevent->arg) == fastr)
-        {
-            ploginfo(LERROR, "handle->call failed sock=%d", uevent->fd);
-        }
-        
-        //定时器事件
-        if (uevent->evtype & EV_TIMER)
-        {
-            //更新计时器
-            if (uevent->evtype & EV_PERSIST)
-            {
-                uevent->endtimer.tv_sec = time(NULL) + uevent->watimer.tv_sec;
-            }
-        }
-        //信号事件
-        else if (uevent->evtype & EV_SIGNAL)
-        {
-        }
-        //读事件
-        else if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
-        {
-            //更新心跳
-            if (uevent->evtype & EV_PERSIST)
-            {
-                if (upheartbeat(uevent->reactor->hbeat, uevent->fd) == 1)
-                {
-                    ploginfo(LDEBUG, "%s->%s success clientsock=%d", "handleevent", "upheartbeat", uevent->fd);
-                }
-            }
-        }
-        
-        //对于非持久事件 需要释放copy事件
-        if (!(uevent->evtype & EV_PERSIST))
-        {
-            frevent(uevent);
-        }
-    }
 }
 
 /*创建反应堆*/
@@ -339,14 +278,6 @@ struct reactor *createreactor(struct eventtop *etlist, int selevmode)
     newreactor->selmode.selevtop = &etlist[selevmode];
     newreactor->selmode.etlist = etlist;
     ploginfo(LDEBUG, "select event model is %s", newreactor->selmode.selevtop->name);
-    
-    /*初始化心跳管理*/
-    newreactor->hbeat = createheartbeat(evenumber, 3);
-    if (!newreactor->hbeat)
-    {
-        return NULL;
-    }
-    newreactor->hbeat->reactor = newreactor;
     
     if (newreactor->selmode.selevtop->create(newreactor, &evenumber) == 0)
     {
@@ -400,6 +331,13 @@ struct reactor *createreactor(struct eventtop *etlist, int selevmode)
         return NULL;
     }
     
+    /*初始化心跳管理 必须在所有的reacotr 初始化完后才才能创建*/
+    newreactor->hbeat = createheartbeat(newreactor, evenumber, 60);
+    if (!newreactor->hbeat)
+    {
+        return NULL;
+    }
+    
     struct event *uevent = setevent(newreactor, newreactor->usigevelist.sockpair[1],
                              EV_READ | EV_PERSIST, clearsig, NULL);
     if (uevent == NULL)
@@ -413,7 +351,7 @@ struct reactor *createreactor(struct eventtop *etlist, int selevmode)
     }
     
     //添加关闭服务器信号处理
-    uevent = setsignal(newreactor, SIGINT, EV_SIGNAL, stopdispatch, newreactor);
+    uevent = setsignal(newreactor, SIGTERM, EV_SIGNAL, stopdispatch, newreactor);
     if (uevent == NULL)
     {
         return NULL;
@@ -459,6 +397,7 @@ struct event *setevent(struct reactor *reactor, int fd, int evtype, callback cal
     newevent->reactor = reactor;
     newevent->rbuf = NULL;
     newevent->wbuf = NULL;
+    newevent->hbman = 0;
     
     return newevent;
 }
@@ -479,8 +418,6 @@ struct event *settimer(struct reactor *reactor, int evtype, callback call, void 
 int addevent(struct event *uevent, int hbman)
 {
     assert((uevent != NULL));
-    
-    ploginfo(LDEBUG, "add sock event sid=%d", uevent->fd);
     
     if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
     {
@@ -503,6 +440,7 @@ int addevent(struct event *uevent, int hbman)
         //当加入的事件需要心跳管理
         if (hbman > 0)
         {
+            uevent->hbman = 1;
             if (addheartbeat(uevent->reactor->hbeat, uevent->fd) != 1)
             {
                 ploginfo(LERROR, "%s->%s failed clientsock=%d", "acceptconn", "addheartbeat", uevent->fd);
@@ -520,8 +458,6 @@ int addevent(struct event *uevent, int hbman)
 int addsignal(struct event *uevent)
 {
     assert((uevent != NULL));
-    
-    ploginfo(LDEBUG, "add sig event sid=%d", uevent->fd);
     
     /*保存此信号的来源*/
     glreactor = uevent->reactor;
@@ -557,8 +493,6 @@ int addtimer(struct event *uevent, struct timeval *timer)
 {
     assert((uevent != NULL));
     
-    ploginfo(LDEBUG, "add timer event tid=-1");
-    
     if (uevent->evtype & EV_TIMER)
     {
         assert((timer != NULL));
@@ -589,6 +523,71 @@ int addactevent(int fd, struct reactor *reactor)
     return 0;
 }
 
+void handle(struct reactor *reactor)
+{
+    //处理事件
+    forlist(reactor->uactevelist)
+    {
+        struct event *uevent = (struct event *)headlistnode->data;
+        
+        if (!(uevent->evtype & EV_PERSIST))
+        {
+            struct event *bkevent = eventcopy(uevent);
+            
+            //从用户中删除
+            if (delevent(uevent) == 0)
+            {
+                ploginfo(LERROR, "handle->delevent failed");
+            }
+            
+            eventfree(uevent);
+            
+            uevent = bkevent;
+        }
+        
+        //调用接口函数
+        if (uevent->call(uevent, uevent->arg) == fastr)
+        {
+            ploginfo(LERROR, "handle->call failed sock=%d", uevent->fd);
+        }
+        
+        //定时器事件
+        if (uevent->evtype & EV_TIMER)
+        {
+            //更新计时器
+            if (uevent->evtype & EV_PERSIST)
+            {
+                uevent->endtimer.tv_sec = time(NULL) + uevent->watimer.tv_sec;
+            }
+        }
+        //信号事件
+        else if (uevent->evtype & EV_SIGNAL)
+        {
+        }
+        //读事件
+        else if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
+        {
+            //更新心跳
+            if (uevent->evtype & EV_PERSIST)
+            {
+                if (uevent->hbman == 1)
+                {
+                    if (upheartbeat(uevent->reactor->hbeat, uevent->fd) == 0)
+                    {
+                        ploginfo(LERROR, "%s->%s failed clientsock=%d", "handle", "upheartbeat", uevent->fd);
+                    }
+                }
+            }
+        }
+        
+        //对于非持久事件 需要释放copy事件
+        if (!(uevent->evtype & EV_PERSIST))
+        {
+            eventfree(uevent);
+        }
+    }
+}
+
 /*关闭事件*/
 int closeevent(struct event *uevent)
 {
@@ -600,7 +599,10 @@ int closeevent(struct event *uevent)
     
     if (uevent->evtype & EV_READ || uevent->evtype & EV_WRITE)
     {
-        close(uevent->fd);
+        if (close(uevent->fd) == -1)
+        {
+            ploginfo(LERROR, "%s->%s sock=%d failed", "closeevent", "close", uevent->fd);
+        }
     }
     
     if (uevent->evtype & EV_WRITE)
@@ -609,7 +611,7 @@ int closeevent(struct event *uevent)
         uevent->call(uevent, uevent->arg);
     }
     
-    frevent(uevent);
+    eventfree(uevent);
     
     return 1;
 }
@@ -619,35 +621,29 @@ int dispatchevent(struct reactor *reactor)
 {
     assert ((reactor != NULL));
     
-    while (reactor->listen)
-    {
-        //清空激活链表
-        clearlist(reactor->uactevelist);
-        
-        //设置超时时间
-        struct timeval mintime = reactor->defaulttime;
-        getminouttimer(reactor, &mintime);
+    //清空激活链表
+    clearlist(reactor->uactevelist);
     
-        //获取活动读写事件
-        if (reactor->selmode.selevtop->dispatch(reactor, &mintime, NULL) == 0)
+    //设置超时时间
+    struct timeval mintime = reactor->defaulttime;
+    getminouttimer(reactor, &mintime);
+    
+    //获取活动读写事件
+    if (reactor->selmode.selevtop->dispatch(reactor, &mintime, NULL) == 0)
+    {
+        //对于信号中断不做处理
+        if (errno != EINTR)
         {
-            //对于信号中断不做处理
-            if (errno != EINTR)
-            {
-                ploginfo(LERROR, "%s->%s failed errno:%d", "dispatchevent", "dispatch", errno);
-                return 0;
-            }
+            ploginfo(LERROR, "%s->%s failed errno:%d", "dispatchevent", "dispatch", errno);
+            return 0;
         }
-        
-        //获取定时器超时事件
-        looptimer(reactor);
-        
-        //获取信号事件
-        loopsignal(reactor);
-        
-        //处理活动事件
-        handle(reactor);
     }
+    
+    //获取定时器超时事件
+    looptimer(reactor);
+    
+    //获取信号事件
+    loopsignal(reactor);
     
     return 1;
 }
@@ -658,7 +654,6 @@ int destroyreactor(struct reactor *reactor)
     assert((reactor != NULL));
     
     //释放sock事件
-    struct event *uevent = NULL;
     struct htnode *htnode = NULL;
     struct htnode *htnextnode = NULL;
     for (int i = 0; i < reactor->uevelist->tablelen; i++)
@@ -666,19 +661,12 @@ int destroyreactor(struct reactor *reactor)
         htnode = reactor->uevelist->hashtable[i];
         while (htnode)
         {
-            uevent = (struct event *)htnode->item;
             htnextnode = htnode->next;
-            if (close(uevent->fd) == -1)
-            {
-                ploginfo(LERROR, "%s->%s sock=%d failed", "destroyreactor", "close", uevent->fd);
-            }
             
-            if (delevent(uevent) == 0)
+            if (closeevent(htnode->item) == 0)
             {
-                ploginfo(LERROR, "%s->%s sock=%d failed", "destroyreactor", "delevent", uevent->fd);
+                ploginfo(LERROR, "%s->%s sock failed", "destroyreactor", "closeevent");
             }
-            
-            frevent(uevent);
             
             htnode = htnextnode;
         }
@@ -691,13 +679,10 @@ int destroyreactor(struct reactor *reactor)
     //释放计时器事件
     for (int i = 0; i < getheapsize(reactor->utimersevelist); i++)
     {
-        uevent = getvaluebyindex(reactor->utimersevelist, i);
-        if (delevent(uevent) == 0)
+        if (closeevent(getvaluebyindex(reactor->utimersevelist, i)) == 0)
         {
-            ploginfo(LERROR, "%s->%s sock=%d failed", "destroyreactor", "delevent", uevent->fd);
+            ploginfo(LERROR, "%s->%s timer failed", "destroyreactor", "closeevent");
         }
-        
-        frevent(uevent);
     }
     if (!destroyminheap(reactor->utimersevelist))
     {
@@ -707,13 +692,10 @@ int destroyreactor(struct reactor *reactor)
     //释放信号事件
     while (!empty(reactor->usigevelist.usignalevelist))
     {
-        uevent = gethead(reactor->usigevelist.usignalevelist)->data;
-        if (delevent(uevent) == 0)
+        if (closeevent(gethead(reactor->usigevelist.usignalevelist)->data) == 0)
         {
-            ploginfo(LERROR, "%s->%s sock=%d failed", "destroyreactor", "delevent", uevent->fd);
+            ploginfo(LERROR, "%s->%s sign failed", "destroyreactor", "closeevent");
         }
-        
-        frevent(uevent);
     }
     destroylist(reactor->usigevelist.usignalevelist);
     

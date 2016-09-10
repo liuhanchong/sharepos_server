@@ -92,6 +92,11 @@ dbpool *createdbpool(int dbtype, int maxdbnum, int coredbnum, dbconn *conn)
 
 int destroydbpool(struct dbpool *dbpool)
 {
+    if (!dbpool)
+    {
+        return 0;
+    }
+    
 	forlist(dbpool->dblist)
 	{
 		struct dbnode *dbnode = (struct dbnode *)headlistnode->data;

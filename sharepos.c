@@ -9,7 +9,7 @@ struct spserver
 {
     struct sysc sysc;
     struct slog *log;
-    struct httpserver *http;
+    struct http *http;
     struct eventtop etlist[SYSEVMODENUM]; /*按照优先级保存模型*/
 };
 
@@ -32,7 +32,7 @@ int main(int argc, const char *argv[])
         }
         
         //向进程发送信号
-        if (kill(pid, SIGINT) == -1)
+        if (kill(pid, SIGTERM) == -1)
         {
             printf("close pro failed, pid=%d!\n", pid);
             return 0;
@@ -57,10 +57,12 @@ int main(int argc, const char *argv[])
     }
 
     //获取系统配置
-    if (getsyscon("./server.ini", &server.sysc) == 1)
+    if (getsyscon("./server.ini", &server.sysc) == 0)
     {
-        ploginfo(LDEBUG, "ip=%s port=%d", server.sysc.ip, server.sysc.port);
+        ploginfo(LERROR, "main->getsyscon failed");
+        return 1;
     }
+    ploginfo(LDEBUG, "ip=%s port=%d", server.sysc.ip, server.sysc.port);
     
     //创建http服务器模块
     server.http = createhttp(server.etlist, (char *)server.sysc.ip, server.sysc.port);
@@ -73,7 +75,7 @@ int main(int argc, const char *argv[])
     //服务器主体逻辑
     if (dispatchhttp(server.http) == 0)
     {
-        ploginfo(LDEBUG, "main->dispatchevent failed");
+        ploginfo(LERROR, "main->dispatchevent failed");
         return 1;
     }
     

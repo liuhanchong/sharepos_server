@@ -1,16 +1,17 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <sys/time.h>
+#include <sys/shm.h>
+#include "cjson.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <sys/time.h>
-#include <sys/shm.h>
-
 /*函数返回值*/
-#define sustr "ok"
-#define fastr "no"
+#define sustr ("ok")
+#define fastr ("no")
 
 /*内存分配*/
 #define cmalloc malloc
@@ -47,6 +48,8 @@ unsigned long strhash(char *str);
 void *createshare(key_t key, size_t size, int *shid);
 
 int destroyshare(int shareid, void *mem);
+    
+char *jsonstringform(cJSON *jsons, char *name);//格式化jason字符 "123" 变为 123
     
 #ifdef __cplusplus
 }

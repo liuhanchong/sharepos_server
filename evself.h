@@ -108,6 +108,7 @@ struct event
     struct sigaction *oldsiga;/*保存设置前信号处理*/
     void *rbuf;/*read buf*/
     void *wbuf;/*write buf*/
+    int hbman;//是否心跳管理
     struct event *next;
 };
 
@@ -122,8 +123,38 @@ struct eventtop
     int (*destroy)(struct reactor *, void *);
 };
     
+/*创建反应堆*/
+struct reactor *createreactor(struct eventtop *etlist, int selevmode);
+
+/*设置事件*/
+struct event *setevent(struct reactor *reactor, int fd, int evtype, callback call, void *arg);
+
+/*设置信号*/
+struct event *setsignal(struct reactor *reactor, int fd, int evtype, callback call, void *arg);
+
+/*设置定时器*/
+struct event *settimer(struct reactor *reactor, int evtype, callback call, void *arg);
+
+/*添加事件*/
+int addevent(struct event *uevent, int hbman);
+
+/*添加信号事件*/
+int addsignal(struct event *uevent);
+
+/*添加计时器事件*/
+int addtimer(struct event *uevent, struct timeval *timer);
+
+/*分发消息*/
+int dispatchevent(struct reactor *reactor);
+
+/*销毁反应堆*/
+int destroyreactor(struct reactor *reactor);
+
 /*添加活动事件*/
 int addactevent(int fd, struct reactor *reactor);
+
+/*处理活动的事件*/
+void handle(struct reactor *reactor);
     
 /*获取事件*/
 struct event *getevent(int fd, struct reactor *reactor);

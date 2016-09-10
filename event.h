@@ -57,6 +57,6 @@ setevtopdp((etlist), 3); \
 }
 #endif
 
-#include "reactor.h"
+#include "evself.h"
 
 #endif

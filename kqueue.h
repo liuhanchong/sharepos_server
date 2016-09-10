@@ -37,7 +37,7 @@ int addkq(struct event *event, void *data)
 {
     //设置事件标记
     int filter = (event->evtype & EV_READ) ? EVFILT_READ : EVFILT_WRITE;
-    int flags = (event->evtype & EV_PERSIST) ? 0 : EV_ONESHOT;
+    int flags = (event->evtype & EV_PERSIST) ? 0 : 0;//EV_ONESHOT 不使用 不使用系统自动删除 会在delevent删除时候操作
     flags |= (event->evtype & EV_CTL_ADD) ? EV_ADD : EV_ADD;
     
     return addkevent(event->reactor->multiplex.kerevid, event->fd, filter, flags);

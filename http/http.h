@@ -2,9 +2,8 @@
 #define HTTP_H
 
 #include "evself.h"
-#include "reactor.h"
 #include "evbuffer.h"
-#include "klhttp-internal.h"
+#include "tpool.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -12,17 +11,18 @@
 extern "C" {
 #endif
 
-struct httpserver
+struct http
 {
     struct reactor *reactor;
     int httpsock;/*服务器套接字*/
+    struct tpool *tp;/*线程池*/
 };
 
-struct httpserver *createhttp(struct eventtop *etlist, char *ip, int port);
+struct http *createhttp(struct eventtop *etlist, char *ip, int port);
 
-int dispatchhttp(struct httpserver *server);
+int dispatchhttp(struct http *server);
 
-int destroyhttp(struct httpserver *server);
+int destroyhttp(struct http *server);
     
 #ifdef __cplusplus
 }

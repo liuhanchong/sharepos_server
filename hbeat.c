@@ -7,7 +7,7 @@
 #include <time.h>
 #include <string.h>
 
-static void *handlefd(void *data)
+static void *handlefd(void *event, void *data)
 {
 	struct heartbeat *hebeat = (struct heartbeat *)data;
     
@@ -26,8 +26,6 @@ static void *handlefd(void *data)
             //超时的fd
             if (time(NULL) - hbnode->time > hebeat->outtime)
             {
-                ploginfo(LOTHER, "outtime sid=%d", hbnode->fd);
-                
                 hbnode->failed++;
                 hbnode->time = time(NULL);
                 
@@ -72,7 +70,7 @@ static void freehbnode(struct hbnode *hbnode)
     cfree(hbnode);
 }
 
-struct heartbeat *createheartbeat(int connnum, int outtime)
+struct heartbeat *createheartbeat(struct reactor *reactor, int connnum, int outtime)
 {
 	connnum = (connnum > 0) ? connnum : 1024;
 	outtime = (outtime > 0) ? outtime : 1;
@@ -85,26 +83,32 @@ struct heartbeat *createheartbeat(int connnum, int outtime)
 
 	newhb->outtime = outtime;
 	newhb->outcount = 3;/*给定最多三次超时*/
+    newhb->reactor = reactor;
 
 	/*创建hashtable*/
     if ((newhb->hbtable = createhashtable(connnum)) == NULL)
     {
         return NULL;
     }
-	
-	newhb->hbthread = createthread(handlefd, newhb, outtime);
-	if (!newhb->hbthread)
-	{
-		return NULL;
-	}
+    
+    //创建定时器
+    struct event *event = settimer(newhb->reactor, EV_TIMER | EV_PERSIST, handlefd, newhb);
+    if (event == NULL)
+    {
+        return NULL;
+    }
+    
+    struct timeval timer = {.tv_sec = outtime, .tv_usec = 0};
+    if (addtimer(event, &timer) == 0)
+    {
+        return NULL;
+    }
 
 	return newhb;
 }
 
 int destroyheartbeat(struct heartbeat *hebeat)
 {
-	destroythread(hebeat->hbthread);
-    
     struct htnode *htnode = NULL;
     for (int i = 0; i < hebeat->hbtable->tablelen; i++)
     {
@@ -139,8 +143,6 @@ int addheartbeat(struct heartbeat *hebeat, int fd)
     int ret = setitembyid(hebeat->hbtable, fd, newnode);
     unlock(hebeat->hbtable->tablemutex);
     
-    ploginfo(LOTHER, "addheartbeat sid=%d", fd);
-    
     return ret;
 }
 
@@ -153,8 +155,6 @@ int delheartbeat(struct heartbeat *hebeat, int fd)
     //删除节点
     ret = delitembyid(hebeat->hbtable, fd);
     unlock(hebeat->hbtable->tablemutex);
-    
-    ploginfo(LOTHER, "delheartbeat sid=%d", fd);
    
 	return ret;
 }
@@ -173,8 +173,6 @@ int upheartbeat(struct heartbeat *hebeat, int fd)
         ret = 1;
     }
     unlock(hebeat->hbtable->tablemutex);
-    
-    ploginfo(LOTHER, "upheartbeat sid=%d", fd);
     
     return ret;
 }

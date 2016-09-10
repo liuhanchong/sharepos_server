@@ -82,7 +82,7 @@ static int addthread(struct tpool *tpool, int addtnum)
         if (insert(tpool) == 0)
         {
             ret = 0;
-            ploginfo(LDEBUG, "insert new thread failed seq=%d, total=%d", i, addtnum);
+            ploginfo(LERROR, "insert new thread failed seq=%d, total=%d", i, addtnum);
             break;
         }
     }
@@ -126,7 +126,7 @@ int destroytpool(struct tpool *tpool)
 		struct tnode *tnode = (struct tnode *)headlistnode->data;
 		if (destroythread(tnode->thread) == 0)
 		{
-            ploginfo(LDEBUG, "destroytpool->destroythread failed");
+            ploginfo(LERROR, "destroytpool->destroythread failed");
 		}
 		cfree(tnode);
 	}
